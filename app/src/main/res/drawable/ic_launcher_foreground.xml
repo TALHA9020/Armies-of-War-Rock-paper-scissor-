@@ -3,8 +3,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- سب ٹائٹل بکس کا نیا ڈیزائن -->
+    
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M25,83 L35,73 L73,35 C75,33 78,33 80,35 C82,37 82,40 80,42 L42,80 C40,82 37,82 35,80 L25,90 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M83,83 L73,73 L35,35 C33,33 30,33 28,35 C26,37 26,40 28,42 L66,80 C68,82 71,82 73,80 L83,90 Z" />
+    
     <path
         android:fillColor="#FFD700"
-        android:pathData="M20,35 H88 V73 H20 Z M28,45 H80 V50 H28 Z M28,58 H60 V63 H28 Z" />
+        android:pathData="M32,70 L38,76 M70,70 L76,76" />
 </vector>
