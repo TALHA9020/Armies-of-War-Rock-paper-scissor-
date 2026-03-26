@@ -27,21 +27,41 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            var gameState by remember { mutableStateOf("SETUP") }
+            var gameState by remember { mutableStateOf("SETUP") } // SETUP, MAP, BATTLE
             var selectedColor by remember { mutableStateOf(Color.Cyan) }
-            var enemyCount by remember { mutableStateOf(2) }
+            var enemyCount by remember { mutableStateOf(3) }
+            
+            // جنگ کے لیے عارضی ڈیٹا
+            var attackerOutpost by remember { mutableStateOf<Outpost?>(null) }
+            var defenderOutpost by remember { mutableStateOf<Outpost?>(null) }
 
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0F0F0F)) {
-                    if (gameState == "SETUP") {
-                        SetupScreen(onStart = { color, count ->
+                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0A0A)) {
+                    when (gameState) {
+                        "SETUP" -> SetupScreen { color, count ->
                             selectedColor = color
                             enemyCount = count
                             battleEngine.setupGame(count + 1, color)
-                            gameState = "GAME"
-                        })
-                    } else {
-                        GameView(battleEngine)
+                            gameState = "MAP"
+                        }
+                        "MAP" -> GameMapView(
+                            engine = battleEngine,
+                            onAttackInitiated = { attacker, defender ->
+                                attackerOutpost = attacker
+                                defenderOutpost = defender
+                                gameState = "BATTLE"
+                            }
+                        )
+                        "BATTLE" -> BattleArena(
+                            attacker = attackerOutpost!!,
+                            defender = defenderOutpost!!,
+                            onBattleResult = { playerUnit, enemyUnit ->
+                                battleEngine.executeBattle(attackerOutpost!!, defenderOutpost!!, playerUnit)
+                                gameState = "MAP"
+                                attackerOutpost = null
+                                defenderOutpost = null
+                            }
+                        )
                     }
                 }
             }
@@ -56,121 +76,113 @@ fun SetupScreen(onStart: (Color, Int) -> Unit) {
     val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, Color.Blue)
 
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("اپنی آرمی کا رنگ چنیں", color = Color.White, fontSize = 24.sp)
-        Spacer(Modifier.height(20.dp))
-        Row {
+        Text("اپنی آرمی کا رنگ منتخب کریں", color = Color.White, fontSize = 22.sp)
+        Row(Modifier.padding(16.dp)) {
             colors.forEach { c ->
                 Box(Modifier.size(45.dp).background(c, CircleShape)
                     .border(if (color == c) 4.dp else 0.dp, Color.White, CircleShape)
                     .clickable { color = c }
                 )
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
             }
         }
-        Spacer(Modifier.height(40.dp))
         Text("دشمنوں کی تعداد: ${count.toInt()}", color = Color.White)
-        Slider(value = count, onValueChange = { count = it }, valueRange = 2f..10f, modifier = Modifier.padding(horizontal = 30.dp))
-        Spacer(Modifier.height(30.dp))
-        Button(onClick = { onStart(color, count.toInt()) }, modifier = Modifier.fillMaxWidth(0.7f)) {
-            Text("میدانِ جنگ میں داخل ہوں")
-        }
+        Slider(value = count, onValueChange = { count = it }, valueRange = 2f..10f, modifier = Modifier.padding(20.dp))
+        Button(onClick = { onStart(color, count.toInt()) }) { Text("جنگ شروع کریں") }
     }
 }
 
 @Composable
-fun GameView(engine: BattleEngine) {
+fun GameMapView(engine: BattleEngine, onAttackInitiated: (Outpost, Outpost) -> Unit) {
     val armies by engine.armies.collectAsState()
-    val turnId by engine.currentTurnId.collectAsState()
-    var activeWave by remember { mutableStateOf<WaveData?>(null) }
+    var selectedByPlayer by remember { mutableStateOf<Outpost?>(null) }
 
     Box(Modifier.fillMaxSize()) {
-        // نقشہ اور چوکیاں
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(Modifier.fillMaxSize()) {
             armies.forEach { army ->
                 army.outposts.forEach { outpost ->
                     // چوکی کا دائرہ
-                    drawCircle(color = army.color, radius = 40f, center = Offset(outpost.posX, outpost.posY))
-                    drawCircle(color = Color.White, radius = 40f, center = Offset(outpost.posX, outpost.posY), style = Stroke(2f))
-                }
-            }
-        }
-
-        // یونٹس کا ڈیٹا دکھانا
-        armies.forEach { army ->
-            army.outposts.forEach { outpost ->
-                Box(Modifier.offset(x = (outpost.posX / 2.7f).dp, y = (outpost.posY / 2.7f).dp)) {
-                    Column(Modifier.background(Color.Black.copy(0.6f)).padding(2.dp)) {
-                        Text("R:${outpost.units.rocks} P:${outpost.units.papers} S:${outpost.units.scissors}", color = Color.White, fontSize = 9.sp)
+                    drawCircle(color = army.color, radius = 45f, center = Offset(outpost.posX, outpost.posY))
+                    // اگر سلیکٹڈ ہو تو ہائی لائٹ کریں
+                    if (selectedByPlayer?.id == outpost.id) {
+                        drawCircle(color = Color.White, radius = 55f, center = Offset(outpost.posX, outpost.posY), style = Stroke(5f))
                     }
                 }
             }
         }
 
-        // باری کی اطلاع
-        Text(if (turnId == 0) "آپ کی باری ہے" else "دشمن حملہ کر رہا ہے...", 
-            Modifier.align(Alignment.TopCenter).padding(top = 40.dp), color = Color.White, fontSize = 18.sp)
-
-        // لہر کی اینیمیشن
-        activeWave?.let { wave ->
-            WaveVisual(wave, onComplete = {
-                engine.handleWaveConclusion(wave.ownerId, true)
-                activeWave = null
-            })
-        }
-
-        // کنٹرول بٹنز
-        if (turnId == 0 && activeWave == null) {
-            Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 50.dp)) {
-                GameButton("R", Color(0xFF8B4513)) { activeWave = WaveData(0, Color(0xFF8B4513), UnitType.ROCK) }
-                GameButton("P", Color.LightGray) { activeWave = WaveData(0, Color.LightGray, UnitType.PAPER) }
-                GameButton("S", Color.Yellow) { activeWave = WaveData(0, Color.Yellow, UnitType.SCISSORS) }
-                Spacer(Modifier.width(10.dp))
-                Button(onClick = { engine.endTurn() }) { Text("Done") }
+        // کلک ایبل ایریاز اور یونٹس کاؤنٹ
+        armies.forEach { army ->
+            army.outposts.forEach { outpost ->
+                Box(Modifier.fillMaxSize()) {
+                    Box(
+                        Modifier.offset(x = (outpost.posX / 3f).dp, y = (outpost.posY / 3f).dp)
+                            .size(50.dp)
+                            .clickable {
+                                if (outpost.ownerId == 0) {
+                                    selectedByPlayer = outpost
+                                } else if (selectedByPlayer != null) {
+                                    onAttackInitiated(selectedByPlayer!!, outpost)
+                                    selectedByPlayer = null
+                                }
+                            }
+                    )
+                    Text("R:${outpost.units.rocks} P:${outpost.units.papers} S:${outpost.units.scissors}",
+                        Modifier.offset(x = (outpost.posX / 3f).dp, y = (outpost.posY / 3f + 20).dp),
+                        color = Color.White, fontSize = 10.sp, shadow = null)
+                }
             }
         }
     }
-    
-    // AI باری مینیج کرنا
-    LaunchedEffect(turnId) {
-        if (turnId != 0) {
-            delay(2000)
-            val enemyUnit = listOf(UnitType.ROCK, UnitType.PAPER, UnitType.SCISSORS).random()
-            activeWave = WaveData(turnId, Color.Red, enemyUnit)
-            delay(2000)
-            engine.endTurn()
+}
+
+@Composable
+fun BattleArena(attacker: Outpost, defender: Outpost, onBattleResult: (UnitType, UnitType) -> Unit) {
+    var playerChoice by remember { mutableStateOf<UnitType?>(null) }
+    var enemyChoice by remember { mutableStateOf<UnitType?>(null) }
+    var animProgress = remember { Animatable(0f) }
+
+    LaunchedEffect(playerChoice) {
+        if (playerChoice != null) {
+            enemyChoice = listOf(UnitType.ROCK, UnitType.PAPER, UnitType.SCISSORS).random()
+            animProgress.animateTo(1f, tween(1000))
+            animProgress.animateTo(0f, tween(800))
+            onBattleResult(playerChoice!!, enemyChoice!!)
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.85f)), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("آمنے سامنے کا مقابلہ!", color = Color.Red, fontSize = 28.sp)
+            Spacer(Modifier.height(40.dp))
+            
+            // دشمن کا انتخاب (اگر ہو چکا ہو)
+            if (enemyChoice != null) {
+                Text("دشمن کا دفاع: $enemyChoice", color = Color.White)
+            }
+
+            // لہر کی اینیمیشن
+            Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    if (animProgress.value > 0) {
+                        drawCircle(color = Color.White, radius = animProgress.value * 500f, style = Stroke(10f), alpha = 1f - animProgress.value)
+                    }
+                }
+            }
+
+            Text("اپنا یونٹ چنیں اور حملہ کریں!", color = Color.White)
+            Row {
+                BattleButton("Rock", Color(0xFF8B4513)) { playerChoice = UnitType.ROCK }
+                BattleButton("Paper", Color.White) { playerChoice = UnitType.PAPER }
+                BattleButton("Scissors", Color.Yellow) { playerChoice = UnitType.SCISSORS }
+            }
         }
     }
 }
 
 @Composable
-fun GameButton(text: String, color: Color, onClick: () -> Unit) {
-    Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = color), 
-        modifier = Modifier.padding(4.dp), contentPadding = PaddingValues(0.dp)) {
-        Text(text, color = if(color == Color.Yellow) Color.Black else Color.White)
+fun BattleButton(label: String, color: Color, onClick: () -> Unit) {
+    Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = color), modifier = Modifier.padding(8.dp)) {
+        Text(label, color = if(color == Color.White || color == Color.Yellow) Color.Black else Color.White)
     }
 }
-
-@Composable
-fun WaveVisual(wave: WaveData, onComplete: () -> Unit) {
-    val progress = remember { Animatable(0f) }
-    
-    LaunchedEffect(Unit) {
-        // لہر کا پھیلنا اور پھر واپس مڑنا (0 -> 1 -> 0)
-        progress.animateTo(1f, animationSpec = tween(1000, easing = LinearEasing))
-        progress.animateTo(0f, animationSpec = tween(800, easing = LinearEasing))
-        onComplete()
-    }
-
-    Canvas(Modifier.fillMaxSize()) {
-        val radius = progress.value * 1500f
-        drawCircle(
-            color = wave.color,
-            radius = radius,
-            center = center,
-            style = Stroke(width = 15f),
-            alpha = progress.value.coerceIn(0f, 0.8f)
-        )
-    }
-}
-
-data class WaveData(val ownerId: Int, val color: Color, val type: UnitType)
