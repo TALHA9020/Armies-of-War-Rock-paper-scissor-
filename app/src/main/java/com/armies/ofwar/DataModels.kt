@@ -3,13 +3,14 @@ package com.armies.ofwar
 import androidx.compose.ui.graphics.Color
 import java.io.Serializable
 
-// 7: یونٹس کی اقسام
 enum class UnitType { ROCK, PAPER, SCISSORS, NONE }
 
-// 13: درجہ بندی کا نظام
-enum class TerritoryLevel { POST, CITY, PROVINCE, COUNTRY, CONTINENT, PLANET, SOLAR_SYSTEM, GALAXY, UNIVERSE }
+enum class TerritoryLevel(val label: String) { 
+    POST("پوسٹ"), CITY("شہر"), PROVINCE("صوبہ"), COUNTRY("ملک"), 
+    CONTINENT("بر اعظم"), PLANET("سیارہ"), SOLAR_SYSTEM("نظام شمسی"), 
+    GALAXY("کہکشاں"), UNIVERSE("کائنات") 
+}
 
-// 10: کارڈ سسٹم
 enum class CardType { ROCK, PAPER, SCISSORS }
 
 data class UnitCounts(
@@ -34,13 +35,13 @@ data class Army(
     val name: String,
     val color: Color,
     val isUserControlled: Boolean,
-    var cards: MutableList<CardType> = mutableListOf(), // 12: میکس 5 کارڈز
+    var cards: MutableList<CardType> = mutableListOf(),
     val outposts: MutableList<Outpost> = mutableListOf()
 ) : Serializable
 
 object RPSRules {
     fun resolve(attacker: UnitType, defender: UnitType): Boolean? {
-        if (attacker == defender) return false // 8: سیم یونٹ پر ڈیفنڈر بھاری (اٹیکر مر جائے گا)
+        if (attacker == defender) return false // دفاعی برتری کا قانون
         return when {
             attacker == UnitType.ROCK && defender == UnitType.SCISSORS -> true
             attacker == UnitType.PAPER && defender == UnitType.ROCK -> true
