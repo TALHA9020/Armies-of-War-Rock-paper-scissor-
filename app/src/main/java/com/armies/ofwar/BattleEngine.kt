@@ -5,9 +5,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class BattleEngine {
-    // فوج کی تعداد (عارضی طور پر یہاں رکھی ہے، بعد میں اسے Territory ماڈل سے جوڑیں گے)
-    var userArmyCount = MutableStateFlow(20)
-    var enemyArmyCount = MutableStateFlow(20)
+    // فوج کی کل تعداد
+    val userArmyCount = MutableStateFlow(20)
+    val enemyArmyCount = MutableStateFlow(20)
 
     private val _attackerWave = MutableStateFlow<List<UnitType>>(emptyList())
     val attackerWave: StateFlow<List<UnitType>> = _attackerWave
@@ -20,12 +20,12 @@ class BattleEngine {
     fun addUnitToWave(isAttacker: Boolean, type: UnitType) {
         if (isAttacker) {
             if (userArmyCount.value > 0) {
-                userArmyCount.value -= 1 // چوکی سے ایک یونٹ کم ہوا
+                userArmyCount.value -= 1 // چوکی سے یونٹ نکلا
                 _attackerWave.value = _attackerWave.value + type
             }
         } else {
             if (enemyArmyCount.value > 0) {
-                enemyArmyCount.value -= 1 // دشمن کی چوکی سے ایک یونٹ کم ہوا
+                enemyArmyCount.value -= 1 // دشمن کی چوکی سے یونٹ نکلا
                 _defenderWave.value = _defenderWave.value + type
             }
         }
@@ -47,18 +47,18 @@ class BattleEngine {
             _attackerWave.value = atkList
             _defenderWave.value = defList
 
-            // چیک کریں کہ کیا کوئی ایک لہر ختم ہو گئی ہے؟
+            // جب ایک طرف کی لہر ختم ہو جائے تو چیک کریں
             checkAndReturnUnits()
         }
     }
 
     private fun checkAndReturnUnits() {
-        // اگر دشمن کی لہر ختم ہو گئی اور آپ کی باقی ہے، تو آپ کی یونٹس واپس چوکی میں
+        // اگر دشمن کی لہر ختم ہو گئی، تو آپ کی باقی یونٹس واپس چوکی میں
         if (_defenderWave.value.isEmpty() && _attackerWave.value.isNotEmpty()) {
             userArmyCount.value += _attackerWave.value.size
             _attackerWave.value = emptyList()
         }
-        // اگر آپ کی لہر ختم ہو گئی اور دشمن کی باقی ہے، تو اس کی یونٹس واپس اس کی چوکی میں
+        // اگر آپ کی لہر ختم ہو گئی، تو دشمن کی باقی یونٹس اس کی چوکی میں واپس
         else if (_attackerWave.value.isEmpty() && _defenderWave.value.isNotEmpty()) {
             enemyArmyCount.value += _defenderWave.value.size
             _defenderWave.value = emptyList()
@@ -68,7 +68,7 @@ class BattleEngine {
     fun startAIEnemy() {
         engineScope.launch {
             while (isActive) {
-                delay(1000) 
+                delay(1200) // دشمن کے حملے کا وقفہ
                 if (enemyArmyCount.value > 0) {
                     val randomUnit = UnitType.values().filter { it != UnitType.NONE }.random()
                     addUnitToWave(false, randomUnit)
