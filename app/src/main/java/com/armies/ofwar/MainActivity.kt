@@ -27,7 +27,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                // گیم شروع ہوتے ہی کمپیوٹر (AI) کا اٹیک شروع کرنے کے لیے
                 LaunchedEffect(Unit) {
                     battleEngine.startAIEnemy()
                 }
@@ -44,26 +43,28 @@ class MainActivity : ComponentActivity() {
 fun BattleField(engine: BattleEngine) {
     val attackerWave by engine.attackerWave.collectAsState()
     val defenderWave by engine.defenderWave.collectAsState()
+    val userArmy by engine.userArmyCount.collectAsState()
+    val enemyArmy by engine.enemyArmyCount.collectAsState()
 
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("ARMIES OF WAR", color = Color(0xFFFFD700), fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // ڈیفنڈر کی لہر (اوپر) - اسے سرخ رنگ دیا گیا ہے
-        WaveView(wave = defenderWave, label = "DEFENDER (ADVANTAGE)", color = Color.Red, isReversed = true)
+        // دشمن کی چوکی اور لہر
+        Text("ENEMY ARMIES: $enemyArmy", color = Color.Red, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(10.dp))
+        WaveView(wave = defenderWave, label = "ENEMY WAVE", color = Color.Red, isReversed = true)
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // اٹیکر کی لہر (نیچے) - اسے نیلا (Cyan) رنگ دیا گیا ہے
-        WaveView(wave = attackerWave, label = "ATTACKER", color = Color.Cyan, isReversed = false)
+        // آپ کی چوکی اور لہر
+        WaveView(wave = attackerWave, label = "YOUR WAVE", color = Color.Cyan, isReversed = false)
+        Spacer(modifier = Modifier.height(10.dp))
+        Text("YOUR ARMIES: $userArmy", color = Color.Cyan, fontSize = 20.sp, fontWeight = FontWeight.Bold)
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // کنٹرول بٹنز (R, P, S)
+        // کنٹرول بٹنز
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -72,26 +73,17 @@ fun BattleField(engine: BattleEngine) {
             GameButton("P", Color.White) { engine.addUnitToWave(true, UnitType.PAPER) }
             GameButton("S", Color.LightGray) { engine.addUnitToWave(true, UnitType.SCISSORS) }
         }
-        
-        // ڈیفنڈر کے بٹنز (صرف مینوئل ٹیسٹنگ کے لیے)
-        Text("DEBUG: DEFENDER CONTROLS", color = Color.DarkGray, fontSize = 10.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { engine.addUnitToWave(false, UnitType.ROCK) }) { Text("R") }
-            Button(onClick = { engine.addUnitToWave(false, UnitType.PAPER) }) { Text("P") }
-            Button(onClick = { engine.addUnitToWave(false, UnitType.SCISSORS) }) { Text("S") }
-        }
     }
 }
 
 @Composable
 fun WaveView(wave: List<UnitType>, label: String, color: Color, isReversed: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = color.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        
+        Text(label, color = color.copy(alpha = 0.6f), fontSize = 10.sp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
+                .height(70.dp)
                 .background(Color(0xFF252525), RoundedCornerShape(12.dp))
                 .padding(8.dp),
             contentAlignment = Alignment.Center
@@ -120,29 +112,29 @@ fun AnimatedUnit(unit: UnitType, color: Color) {
         exit = fadeOut()
     ) {
         Card(
-            modifier = Modifier.padding(4.dp),
-            colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.2f)),
+            modifier = Modifier.padding(2.dp),
+            colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.15f)),
             border = androidx.compose.foundation.BorderStroke(1.dp, color)
         ) {
             Text(
                 text = unit.name.take(1),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                 color = color,
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            ) [cite: 33]
+                fontSize = 18.sp
+            )
         }
     }
 }
 
 @Composable
 fun GameButton(label: String, color: Color, onClick: () -> Unit) {
-    FilledTonalButton(
+    Button(
         onClick = onClick,
-        modifier = Modifier.size(80.dp),
+        modifier = Modifier.size(75.dp),
         shape = CircleShape,
-        [cite_start]colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF333333))
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))
     ) {
-        Text(label, color = color, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+        Text(label, color = color, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     }
 }
