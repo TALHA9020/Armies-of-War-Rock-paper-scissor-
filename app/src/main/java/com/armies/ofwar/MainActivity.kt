@@ -22,7 +22,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var gameStarted by remember { mutableStateOf(false) }
-            
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121212)) {
                     if (!gameStarted) {
@@ -31,7 +30,7 @@ class MainActivity : ComponentActivity() {
                                 battleEngine.setupGame(5) 
                                 gameStarted = true 
                             }) { Text("Start Armies of War") }
-                        } [cite: 38, 40]
+                        }
                     } else {
                         BattleField(battleEngine)
                     }
@@ -43,29 +42,26 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun BattleField(engine: BattleEngine) {
-    [cite_start]val armies by engine.armies.collectAsState()
+    val armies by engine.armies.collectAsState()
     val phase by engine.currentPhase.collectAsState()
     val cards by engine.userCards.collectAsState()
     val turnId by engine.currentTurnId.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        // Phase and Cards Card
         Card(modifier = Modifier.fillMaxWidth().padding(8.dp), colors = CardDefaults.cardColors(containerColor = Color.DarkGray)) {
             Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("CURRENT PHASE: ${phase.name}", color = if(phase == TurnPhase.ATTACK) Color.Red else Color.Cyan, fontSize = 20.sp)
-                Text("Your Cards: $cards / 4", color = Color.Yellow, fontSize = 16.sp)
+                Text("PHASE: ${phase.name}", color = if(phase == TurnPhase.ATTACK) Color.Red else Color.Cyan, fontSize = 20.sp)
+                Text("Cards: $cards / 4", color = Color.Yellow, fontSize = 16.sp)
                 if (cards >= 4) {
                     Button(onClick = { engine.exchangeCards() }, colors = ButtonDefaults.buttonColors(containerColor = Color.Green)) {
-                        Text("Exchange 4 Cards for 20 Units", color = Color.Black)
+                        Text("Exchange Cards (20 Units)", color = Color.Black)
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-        Text("WORLD MAP", color = Color.White, fontSize = 18.sp)
+        Text("BATTLE MAP", color = Color.White, modifier = Modifier.padding(vertical = 8.dp))
 
-        // یہی وہ حصہ ہے جو نقشہ دکھائے گا
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
             items(armies) { army ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF252525))) {
@@ -79,7 +75,6 @@ fun BattleField(engine: BattleEngine) {
             }
         }
 
-        // Controls
         if (turnId == 0) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Button(onClick = { engine.setPhase(TurnPhase.ATTACK) }, colors = ButtonDefaults.buttonColors(containerColor = if(phase == TurnPhase.ATTACK) Color.Red else Color.Gray)) { Text("ATTACK") }
@@ -87,15 +82,15 @@ fun BattleField(engine: BattleEngine) {
             }
             Row(Modifier.padding(8.dp)) {
                 Button(onClick = { }) { Text("R") }
-                Spacer(Modifier.width(5.dp))
+                Spacer(Modifier.width(8.dp))
                 Button(onClick = { }) { Text("P") }
-                Spacer(Modifier.width(5.dp))
+                Spacer(Modifier.width(8.dp))
                 Button(onClick = { }) { Text("S") }
             }
             Button(onClick = { engine.endTurn() }, modifier = Modifier.fillMaxWidth()) { Text("FINISH TURN") }
         } else {
             CircularProgressIndicator(color = Color.Red)
-            Text("Enemy Turn...", color = Color.White)
+            Text("Enemy's Turn", color = Color.White)
         }
     }
 }
