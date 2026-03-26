@@ -3,20 +3,16 @@ package com.armies.ofwar
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -26,12 +22,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            var gameStarted by remember { mutableStateOf(false) }
             MaterialTheme {
-                LaunchedEffect(Unit) {
-                    battleEngine.startAIEnemy()
-                }
-
-                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF1A1A1A)) {
+                if (!gameStarted) {
+                    SetupScreen { count, allies ->
+                        battleEngine.setupGame(count, allies)
+                        gameStarted = true
+                    }
+                } else {
                     BattleField(battleEngine)
                 }
             }
@@ -40,101 +38,48 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun BattleField(engine: BattleEngine) {
-    val attackerWave by engine.attackerWave.collectAsState()
-    val defenderWave by engine.defenderWave.collectAsState()
-    val userArmy by engine.userArmyCount.collectAsState()
-    val enemyArmy by engine.enemyArmyCount.collectAsState()
+fun SetupScreen(onStart: (Int, List<Int>) -> Unit) {
+    var armyCount by remember { mutableStateOf(2f) }
+    val allies = remember { mutableStateListOf<Int>() }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // دشمن کی چوکی اور لہر
-        Text("ENEMY ARMIES: $enemyArmy", color = Color.Red, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(10.dp))
-        WaveView(wave = defenderWave, label = "ENEMY WAVE", color = Color.Red, isReversed = true)
+    Column(modifier = Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("GAME SETUP", fontSize = 30.sp, color = Color.White)
+        Spacer(Modifier.height(20.dp))
+        
+        Text("Total Armies: ${armyCount.toInt()}", color = Color.Gray)
+        Slider(value = armyCount, valueRange = 2f..10f, onValueChange = { armyCount = it })
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // آپ کی چوکی اور لہر
-        WaveView(wave = attackerWave, label = "YOUR WAVE", color = Color.Cyan, isReversed = false)
-        Spacer(modifier = Modifier.height(10.dp))
-        Text("YOUR ARMIES: $userArmy", color = Color.Cyan, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-
-        Spacer(modifier = Modifier.height(30.dp))
-
-        // کنٹرول بٹنز
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            GameButton("R", Color.Gray) { engine.addUnitToWave(true, UnitType.ROCK) }
-            GameButton("P", Color.White) { engine.addUnitToWave(true, UnitType.PAPER) }
-            GameButton("S", Color.LightGray) { engine.addUnitToWave(true, UnitType.SCISSORS) }
-        }
-    }
-}
-
-@Composable
-fun WaveView(wave: List<UnitType>, label: String, color: Color, isReversed: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = color.copy(alpha = 0.6f), fontSize = 10.sp)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(70.dp)
-                .background(Color(0xFF252525), RoundedCornerShape(12.dp))
-                .padding(8.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            LazyRow(
-                reverseLayout = isReversed,
-                horizontalArrangement = if (isReversed) Arrangement.End else Arrangement.Start,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(wave) { unit ->
-                    AnimatedUnit(unit, color)
+        Text("Select Your Allies:", color = Color.Gray)
+        LazyColumn(Modifier.height(200.dp)) {
+            items((1 until armyCount.toInt()).toList()) { id ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = allies.contains(id), onCheckedChange = { 
+                        if (it) allies.add(id) else allies.remove(id) 
+                    })
+                    Text("Army ${id + 1}", color = Color.White)
                 }
             }
         }
-    }
-}
 
-@Composable
-fun AnimatedUnit(unit: UnitType, color: Color) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(animationSpec = tween(300)) + expandHorizontally(),
-        exit = fadeOut()
-    ) {
-        Card(
-            modifier = Modifier.padding(2.dp),
-            colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.15f)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, color)
-        ) {
-            Text(
-                text = unit.name.take(1),
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                color = color,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
+        Button(onClick = { onStart(armyCount.toInt(), allies.toList()) }) {
+            Text("START WAR")
         }
     }
 }
 
 @Composable
-fun GameButton(label: String, color: Color, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.size(75.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))
-    ) {
-        Text(label, color = color, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+fun BattleField(engine: BattleEngine) {
+    val armies by engine.armies.collectAsState()
+    val turnId by engine.currentTurnId.collectAsState()
+    val attackerWave by engine.attackerWave.collectAsState()
+    val defenderWave by engine.defenderWave.collectAsState()
+
+    val currentArmy = armies.getOrNull(turnId)
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text("TURN: ${currentArmy?.name ?: ""}", color = currentArmy?.color ?: Color.White)
+        
+        // یہاں پرانا WaveView اور Buttons والا کوڈ آئے گا جو پہلے دیا گیا تھا
+        // صرف رنگ اور ڈیٹا اب engine.armies سے متحرک (Dynamic) طور پر آئے گا
     }
 }
