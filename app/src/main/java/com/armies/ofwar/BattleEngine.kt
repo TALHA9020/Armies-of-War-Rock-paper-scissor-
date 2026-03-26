@@ -14,13 +14,20 @@ class BattleEngine {
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
+    private val _currentPhase = MutableStateFlow(TurnPhase.ATTACK)
+    val currentPhase: StateFlow<TurnPhase> = _currentPhase
+
+    private val _userCards = MutableStateFlow(0)
+    val userCards: StateFlow<Int> = _userCards
+
     private val _attackerWave = MutableStateFlow<List<UnitType>>(emptyList())
     val attackerWave: StateFlow<List<UnitType>> = _attackerWave
 
     private val _defenderWave = MutableStateFlow<List<UnitType>>(emptyList())
     val defenderWave: StateFlow<List<UnitType>> = _defenderWave
 
-    // گیم سیٹ اپ: افواج اور اتحاد
+    private var didCaptureInThisTurn = false
+
     fun setupGame(totalArmies: Int, userAllianceWith: List<Int>) {
         val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, 
                            Color.White, Color.Gray, Color.Blue, Color.LightGray, Color.DarkGray)
@@ -35,8 +42,22 @@ class BattleEngine {
             )
         }
         _armies.value = newArmies
-        _currentTurnId.value = 0
+        startPassiveIncome()
         startAILogic()
+    }
+
+    // ہر سیکنڈ ہر چوکی میں 1 یونٹ کا اضافہ
+    private fun startPassiveIncome() {
+        engineScope.launch {
+            while (isActive) {
+                delay(1000)
+                _armies.value = _armies.value.map { it.copy(armyCount = it.armyCount + 1) }
+            }
+        }
+    }
+
+    fun setPhase(phase: TurnPhase) {
+        _currentPhase.value = phase
     }
 
     fun addUnitToWave(isAttacker: Boolean, type: UnitType) {
@@ -44,19 +65,21 @@ class BattleEngine {
         val actorId = if (isAttacker) _currentTurnId.value else getDefenderId()
         
         if (actorId != -1 && currentList[actorId].armyCount > 0) {
-            currentList[actorId] = currentList[actorId].copy(armyCount = currentList[actorId].armyCount - 1)
-            _armies.value = currentList
-            
-            if (isAttacker) _attackerWave.value += type 
-            else _defenderWave.value += type
-            
-            processBattle()
+            if (_currentPhase.value == TurnPhase.MOVE && isAttacker) {
+                // MOVE فیز میں یونٹ براہ راست دوسری چوکی (اتحادی) کو منتقل ہوتی ہے
+                moveToAlly(type)
+            } else {
+                currentList[actorId] = currentList[actorId].copy(armyCount = currentList[actorId].armyCount - 1)
+                _armies.value = currentList
+                if (isAttacker) _attackerWave.value += type else _defenderWave.value += type
+                processBattle()
+            }
         }
     }
 
-    private fun getDefenderId(): Int {
-        val attacker = _armies.value.getOrNull(_currentTurnId.value) ?: return -1
-        return _armies.value.indexOfFirst { it.allianceId != attacker.allianceId && it.armyCount > 0 }
+    private fun moveToAlly(type: UnitType) {
+        val allyId = _armies.value.indexOfFirst { it.id != 0 && it.allianceId == 1 }
+        if (allyId != -1) updateArmyCount(allyId, 1)
     }
 
     private fun processBattle() {
@@ -65,11 +88,11 @@ class BattleEngine {
 
         if (atk.isNotEmpty() && def.isNotEmpty()) {
             val result = RPSRules.resolve(atk.first(), def.first())
-            when (result) {
-                true -> def.removeAt(0)
-                false -> atk.removeAt(0)
-                null -> atk.removeAt(0)
-            }
+            if (result == true) {
+                def.removeAt(0)
+                didCaptureInThisTurn = true // کامیاب حملے کی نشانی
+            } else atk.removeAt(0)
+            
             _attackerWave.value = atk
             _defenderWave.value = def
             checkAndReturnUnits()
@@ -80,26 +103,40 @@ class BattleEngine {
         if (_defenderWave.value.isEmpty() && _attackerWave.value.isNotEmpty()) {
             updateArmyCount(_currentTurnId.value, _attackerWave.value.size)
             _attackerWave.value = emptyList()
-        } else if (_attackerWave.value.isEmpty() && _defenderWave.value.isNotEmpty()) {
-            updateArmyCount(getDefenderId(), _defenderWave.value.size)
-            _defenderWave.value = emptyList()
+        }
+    }
+
+    fun endTurn() {
+        if (didCaptureInThisTurn && _currentTurnId.value == 0) {
+            _userCards.value += 1 // کارڈ ملنا
+        }
+        didCaptureInThisTurn = false
+        _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
+    }
+
+    fun exchangeCards() {
+        if (_userCards.value >= 4) {
+            _userCards.value -= 4
+            updateArmyCount(0, 20)
         }
     }
 
     private fun updateArmyCount(armyId: Int, count: Int) {
-        if (armyId == -1) return
         val list = _armies.value.toMutableList()
         list[armyId] = list[armyId].copy(armyCount = list[armyId].armyCount + count)
         _armies.value = list
     }
 
+    private fun getDefenderId() = _armies.value.indexOfFirst { it.allianceId != 1 && it.armyCount > 0 }
+
     private fun startAILogic() {
         engineScope.launch {
             while (isActive) {
-                val currentArmy = _armies.value.getOrNull(_currentTurnId.value)
-                if (currentArmy != null && !currentArmy.isUserControlled) {
-                    delay(1000)
+                if (_currentTurnId.value != 0) {
+                    delay(2000)
                     addUnitToWave(true, UnitType.values().filter { it != UnitType.NONE }.random())
+                    delay(1000)
+                    endTurn()
                 }
                 delay(500)
             }
