@@ -8,22 +8,19 @@ import kotlinx.coroutines.flow.StateFlow
 class BattleEngine {
     private val engineScope = CoroutineScope(Dispatchers.Default + Job())
     
-    // تمام افواج کی لسٹ
     private val _armies = MutableStateFlow<List<Army>>(emptyList())
     val armies: StateFlow<List<Army>> = _armies
 
-    // موجودہ باری (Turn) والے کھلاڑی کا ID
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    // لہروں کا ڈیٹا
     private val _attackerWave = MutableStateFlow<List<UnitType>>(emptyList())
     val attackerWave: StateFlow<List<UnitType>> = _attackerWave
 
     private val _defenderWave = MutableStateFlow<List<UnitType>>(emptyList())
     val defenderWave: StateFlow<List<UnitType>> = _defenderWave
 
-    // گیم سیٹ اپ: افواج کی تعداد اور اتحاد
+    // گیم سیٹ اپ
     fun setupGame(totalArmies: Int, userAllianceWith: List<Int>) {
         val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, 
                            Color.White, Color.Gray, Color.Blue, Color.LightGray, Color.DarkGray)
@@ -31,7 +28,7 @@ class BattleEngine {
         val newArmies = (0 until totalArmies).map { id ->
             Army(
                 id = id,
-                name = if (id == 0) "You" else "Enemy ${id}",
+                name = if (id == 0) "You" else "Army ${id + 1}",
                 color = colors[id % colors.size],
                 isUserControlled = (id == 0),
                 allianceId = if (id == 0 || userAllianceWith.contains(id)) 1 else id + 10 
@@ -39,16 +36,15 @@ class BattleEngine {
         }
         _armies.value = newArmies
         _currentTurnId.value = 0
+        startAILogic()
     }
 
     fun addUnitToWave(isAttacker: Boolean, type: UnitType) {
         val currentList = _armies.value.toMutableList()
-        val actorIndex = if (isAttacker) _currentTurnId.value else getDefenderId()
+        val actorId = if (isAttacker) _currentTurnId.value else getDefenderId()
         
-        if (actorIndex != -1 && currentList[actorIndex].armyCount > 0) {
-            currentList[actorIndex] = currentList[actorIndex].copy(
-                armyCount = currentList[actorIndex].armyCount - 1
-            )
+        if (actorId != -1 && currentList[actorId].armyCount > 0) {
+            currentList[actorId] = currentList[actorId].copy(armyCount = currentList[actorId].armyCount - 1)
             _armies.value = currentList
             
             if (isAttacker) _attackerWave.value += type 
@@ -59,8 +55,7 @@ class BattleEngine {
     }
 
     private fun getDefenderId(): Int {
-        // فی الحال یہ سادہ رکھا ہے: اٹیکر کے علاوہ جو پہلا دشمن ملے
-        val attacker = _armies.value[_currentTurnId.value]
+        val attacker = _armies.value.getOrNull(_currentTurnId.value) ?: return -1
         return _armies.value.indexOfFirst { it.allianceId != attacker.allianceId && it.armyCount > 0 }
     }
 
@@ -85,7 +80,6 @@ class BattleEngine {
         if (_defenderWave.value.isEmpty() && _attackerWave.value.isNotEmpty()) {
             updateArmyCount(_currentTurnId.value, _attackerWave.value.size)
             _attackerWave.value = emptyList()
-            // ٹرن ختم کرنے کی لاجک یہاں آ سکتی ہے
         } else if (_attackerWave.value.isEmpty() && _defenderWave.value.isNotEmpty()) {
             updateArmyCount(getDefenderId(), _defenderWave.value.size)
             _defenderWave.value = emptyList()
@@ -99,8 +93,7 @@ class BattleEngine {
         _armies.value = list
     }
 
-    // AI کی ٹرن شروع کرنا
-    fun startAILogic() {
+    private fun startAILogic() {
         engineScope.launch {
             while (isActive) {
                 val currentArmy = _armies.value.getOrNull(_currentTurnId.value)
