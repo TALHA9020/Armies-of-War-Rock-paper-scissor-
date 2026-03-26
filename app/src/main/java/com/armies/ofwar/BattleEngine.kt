@@ -1,5 +1,6 @@
 package com.armies.ofwar
 
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -10,7 +11,9 @@ class BattleEngine {
     private val _defenderWave = MutableStateFlow<List<UnitType>>(emptyList())
     val defenderWave: StateFlow<List<UnitType>> = _defenderWave
 
-    // یونٹ شامل کرنے کا فنکشن
+    private val engineScope = CoroutineScope(Dispatchers.Default + Job())
+
+    // یونٹ شامل کرنا
     fun addUnitToWave(isAttacker: Boolean, type: UnitType) {
         if (isAttacker) {
             _attackerWave.value = _attackerWave.value + type
@@ -20,41 +23,32 @@ class BattleEngine {
         processBattle()
     }
 
+    // --- کمپیوٹر (AI) کی لہر شروع کرنے کا فنکشن ---
+    fun startAIEnemy() {
+        engineScope.launch {
+            while (isActive) {
+                delay(800) // ہر 0.8 سیکنڈ بعد کمپیوٹر ایک یونٹ بھیجے گا
+                
+                // کمپیوٹر ہمیشہ ڈیفنڈر (False) کے طور پر کھیلے گا
+                val randomUnit = UnitType.values().filter { it != UnitType.NONE }.random()
+                addUnitToWave(isAttacker = false, type = randomUnit)
+            }
+        }
+    }
+
     private fun processBattle() {
         val atkList = _attackerWave.value.toMutableList()
         val defList = _defenderWave.value.toMutableList()
 
         if (atkList.isNotEmpty() && defList.isNotEmpty()) {
-            val atkUnit = atkList.first()
-            val defUnit = defList.first()
-
-            // روک، پیپر، سیزر کا فیصلہ
-            val attackerWins = RPSRules.resolve(atkUnit, defUnit)
-
-            when (attackerWins) {
-                true -> {
-                    // صرف اس صورت میں اٹیکر جیتے گا اگر اس کا یونٹ بھاری ہو
-                    defList.removeAt(0)
-                }
-                false -> {
-                    // ڈیفنڈر کا یونٹ بھاری تھا، اٹیکر کا ختم
-                    atkList.removeAt(0)
-                }
-                null -> {
-                    // برابر (Tie): آپ کے اصول کے مطابق ڈیفنڈر بھاری پڑے گا
-                    // یعنی اٹیکر کا یونٹ ضائع ہو جائے گا، ڈیفنڈر کا محفوظ رہے گا
-                    atkList.removeAt(0)
-                }
+            val result = RPSRules.resolve(atkList.first(), defList.first())
+            when (result) {
+                true -> defList.removeAt(0) // اٹیکر جیتا
+                false -> atkList.removeAt(0) // ڈیفنڈر جیتا
+                null -> atkList.removeAt(0)  // برابر (ڈیفنڈر ایڈوانٹیج)
             }
-            
             _attackerWave.value = atkList
             _defenderWave.value = defList
         }
-    }
-
-    // ٹیسٹنگ کے لیے یا جنگ ختم ہونے پر لہریں صاف کرنا
-    fun clearWaves() {
-        _attackerWave.value = emptyList()
-        _defenderWave.value = emptyList()
     }
 }
