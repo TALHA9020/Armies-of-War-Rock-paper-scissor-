@@ -13,6 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-// پروجیکٹ کا اصل نام یہاں اپ ڈیٹ کر دیا گیا ہے
 rootProject.name = "Armies of War"
 include ':app'
