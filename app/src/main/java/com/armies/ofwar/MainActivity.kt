@@ -20,12 +20,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var gameStarted by remember { mutableStateOf(false) }
+            
             MaterialTheme {
-                Surface(color = Color(0xFF1A1A1A)) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color(0xFF121212) // ڈارک تھیم
+                ) {
                     if (!gameStarted) {
-                        SetupScreen { count, allies ->
-                            battleEngine.setupGame(count, allies)
-                            gameStarted = true
+                        // گیم شروع کرنے کا بٹن
+                        Box(contentAlignment = Alignment.Center) {
+                            Button(onClick = { 
+                                battleEngine.setupGame(5) // 5 فوجوں کے ساتھ شروع کریں
+                                gameStarted = true 
+                            }) {
+                                Text("Start Armies of War")
+                            }
                         }
                     } else {
                         BattleField(battleEngine)
@@ -43,54 +52,83 @@ fun BattleField(engine: BattleEngine) {
     val cards by engine.userCards.collectAsState()
     val turnId by engine.currentTurnId.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("PHASE: $phase", color = Color.Yellow, fontSize = 18.sp)
-        Text("Cards: $cards / 4", color = Color.Cyan)
-
-        if (cards >= 4) {
-            Button(onClick = { engine.exchangeCards() }) { Text("Exchange Cards for 20 Units") }
-        }
-
-        Spacer(Modifier.height(20.dp))
-        
-        // فیز سوئچر
-        if (turnId == 0) {
-            Row {
-                Button(onClick = { engine.setPhase(TurnPhase.ATTACK) }, 
-                    colors = ButtonDefaults.buttonColors(containerColor = if(phase == TurnPhase.ATTACK) Color.Red else Color.Gray)) {
-                    Text("ATTACK")
-                }
-                Spacer(Modifier.width(10.dp))
-                Button(onClick = { engine.setPhase(TurnPhase.MOVE) },
-                    colors = ButtonDefaults.buttonColors(containerColor = if(phase == TurnPhase.MOVE) Color.Blue else Color.Gray)) {
-                    Text("MOVE")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // اوپر کی معلومات (Phase اور Cards)
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("CURRENT PHASE: ${phase.name}", color = if(phase == TurnPhase.ATTACK) Color.Red else Color.Cyan, fontSize = 20.sp)
+                Text("Your Cards: $cards / 4", color = Color.Yellow, fontSize = 16.sp)
+                
+                if (cards >= 4) {
+                    Button(
+                        onClick = { engine.exchangeCards() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
+                    ) {
+                        Text("Exchange 4 Cards for 20 Units", color = Color.Black)
+                    }
                 }
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(20.dp))
 
+        // باری کس کی ہے؟
+        Text(
+            text = if (turnId == 0) "YOUR TURN" else "ENEMY TURN",
+            color = if (turnId == 0) Color.Green else Color.Red,
+            fontSize = 24.sp
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // فیز کنٹرول بٹن (صرف یوزر کی باری پر نظر آئیں گے)
         if (turnId == 0) {
-            Row {
-                UnitButton("R") { engine.addUnitToWave(true, UnitType.ROCK) }
-                UnitButton("P") { engine.addUnitToWave(true, UnitType.PAPER) }
-                UnitButton("S") { engine.addUnitToWave(true, UnitType.SCISSORS) }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Button(
+                    onClick = { engine.setPhase(TurnPhase.ATTACK) },
+                    colors = ButtonDefaults.buttonColors(containerColor = if(phase == TurnPhase.ATTACK) Color.Red else Color.Gray)
+                ) { Text("ATTACK MODE") }
+
+                Button(
+                    onClick = { engine.setPhase(TurnPhase.MOVE) },
+                    colors = ButtonDefaults.buttonColors(containerColor = if(phase == TurnPhase.MOVE) Color.Blue else Color.Gray)
+                ) { Text("MOVE MODE") }
             }
-            Button(onClick = { engine.endTurn() }, modifier = Modifier.padding(top = 10.dp)) {
-                Text("END TURN")
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // یونٹ بھیجنے کے بٹن
+            Row {
+                Button(onClick = { /* یہاں انجن کا اٹیک فنکشن کال ہوگا */ }) { Text("R") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { /* یہاں انجن کا اٹیک فنکشن کال ہوگا */ }) { Text("P") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { /* یہاں انجن کا اٹیک فنکشن کال ہوگا */ }) { Text("S") }
+            }
+
+            Button(
+                onClick = { engine.endTurn() },
+                modifier = Modifier.padding(top = 16.dp).fillMaxWidth()
+            ) {
+                Text("FINISH TURN")
             }
         } else {
-            Text("Enemy is thinking...", color = Color.White)
+            // دشمن کی باری کے دوران لوڈنگ میسج
+            CircularProgressIndicator(color = Color.Red)
+            Text("Enemy is attacking...", color = Color.White)
         }
-        
-        Text("Your Units: ${armies.firstOrNull()?.armyCount ?: 0}", color = Color.White, modifier = Modifier.padding(10.dp))
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // آپ کی یونٹس کی کل تعداد
+        Text("Your Total Units: ${armies.firstOrNull { it.id == 0 }?.armyCount ?: 0}", color = Color.White)
     }
 }
-
-@Composable
-fun UnitButton(label: String, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.padding(4.dp)) { Text(label) }
-}
-
-@Composable
-fun SetupScreen(onStart: (Int, List<Int>) -> Unit) { /* وہی پرانا سیٹ اپ کوڈ */ }
