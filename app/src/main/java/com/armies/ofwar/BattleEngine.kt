@@ -14,30 +14,40 @@ class BattleEngine {
     private val _currentPhase = MutableStateFlow(TurnPhase.ATTACK)
     val currentPhase: StateFlow<TurnPhase> = _currentPhase
 
-    private val _userCards = MutableStateFlow(0)
-    val userCards: StateFlow<Int> = _userCards
-
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    private var hasCapturedThisTurn = false
-
-    fun setupGame(totalArmies: Int) {
+    // 1 & 2: پلیئر کا رنگ اور دشمنوں کی تعداد سیٹ اپ کرنا
+    fun setupGame(totalPlayers: Int, playerColor: Color) {
         val list = mutableListOf<Army>()
-        val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta)
+        val defaultColors = listOf(Color.Red, Color.Green, Color.Yellow, Color.Magenta, Color.Blue, Color.White, Color.Gray)
         
-        for (i in 0 until totalArmies) {
-            list.add(
-                Army(
-                    id = i,
-                    name = if (i == 0) "You" else "Enemy $i",
-                    color = colors[i % colors.size],
-                    isUserControlled = (i == 0),
-                    armyCount = 20,
-                    allianceId = if (i == 0) 1 else i + 10
-                )
+        for (i in 0 until totalPlayers) {
+            val isUser = (i == 0)
+            val armyColor = if (isUser) playerColor else defaultColors[i % defaultColors.size]
+            
+            val newArmy = Army(
+                id = i,
+                name = if (isUser) "You" else "Enemy $i",
+                color = armyColor,
+                isUserControlled = isUser,
+                allianceId = i + 1
             )
+
+            // 3: نقشہ اور چوکیاں بنانا (فرضی کوآرڈینیٹس کے ساتھ)
+            // ہر آرمی کو ایک ابتدائی چوکی دینا
+            val initialOutpost = Outpost(
+                id = i * 100, // منفرد آئی ڈی
+                ownerId = i,
+                units = UnitCounts(rocks = 10, papers = 10, scissors = 10),
+                posX = (100..500).random().toFloat(),
+                posY = (200..800).random().toFloat()
+            )
+            newArmy.outposts.add(initialOutpost)
+            
+            list.add(newArmy)
         }
+        
         _armies.value = list
         startPassiveIncome()
     }
@@ -45,35 +55,43 @@ class BattleEngine {
     private fun startPassiveIncome() {
         engineScope.launch {
             while (isActive) {
-                delay(1000)
-                _armies.value = _armies.value.map { it.copy(armyCount = it.armyCount + 1) }
+                delay(2000) // ہر 2 سیکنڈ بعد یونٹس بڑھیں گے
+                _armies.value = _armies.value.map { army ->
+                    army.copy(outposts = army.outposts.map { outpost ->
+                        // ہر چوکی میں برابر یونٹس کا اضافہ
+                        outpost.copy(units = outpost.units.copy(
+                            rocks = outpost.units.rocks + 1,
+                            papers = outpost.units.papers + 1,
+                            scissors = outpost.units.scissors + 1
+                        ))
+                    }.toMutableList())
+                }
             }
         }
     }
 
-    fun setPhase(phase: TurnPhase) {
-        _currentPhase.value = phase
+    // 4: حملے کے لیے چوکیوں کا انتخاب
+    private var selectedAttackerOutpost: Outpost? = null
+
+    fun selectOutpost(outpost: Outpost) {
+        val currentArmy = _armies.value.find { it.id == _currentTurnId.value }
+        
+        if (outpost.ownerId == _currentTurnId.value) {
+            // اپنی چوکی منتخب کی (اٹیک کے لیے)
+            selectedAttackerOutpost = outpost
+        } else if (selectedAttackerOutpost != null) {
+            // دشمن کی چوکی منتخب کی (حملہ کرنے کے لیے)
+            performAttack(selectedAttackerOutpost!!, outpost)
+            selectedAttackerOutpost = null
+        }
     }
 
-    fun markCaptureSuccess() {
-        hasCapturedThisTurn = true
+    private fun performAttack(attacker: Outpost, defender: Outpost) {
+        // یہاں ہم اگلی فائل (UI) میں اٹیک ویو دکھانے کی لاجک شامل کریں گے
+        println("Attack from ${attacker.id} to ${defender.id}")
     }
 
     fun endTurn() {
-        if (_currentTurnId.value == 0 && hasCapturedThisTurn) {
-            _userCards.value += 1
-        }
-        hasCapturedThisTurn = false
         _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
-        _currentPhase.value = TurnPhase.ATTACK 
-    }
-
-    fun exchangeCards() {
-        if (_userCards.value >= 4) {
-            _userCards.value -= 4
-            val currentList = _armies.value.toMutableList()
-            currentList[0] = currentList[0].copy(armyCount = currentList[0].armyCount + 20)
-            _armies.value = currentList
-        }
     }
 }
