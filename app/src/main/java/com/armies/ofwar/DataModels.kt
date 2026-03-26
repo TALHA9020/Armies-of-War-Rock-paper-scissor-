@@ -3,20 +3,15 @@ package com.armies.ofwar
 import androidx.compose.ui.graphics.Color
 import java.io.Serializable
 
-// یونٹس کی مختلف اقسام
-enum class UnitType {
-    ROCK, PAPER, SCISSORS, NONE
-}
+// 7: یونٹس کی اقسام
+enum class UnitType { ROCK, PAPER, SCISSORS, NONE }
 
-// گیم کے مختلف مراحل
-enum class TurnPhase {
-    SELECT_PLAYER_COLOR, // نیا: رنگ منتخب کرنے کا مرحلہ
-    SETUP_ENEMIES,       // نیا: دشمنوں کی تعداد منتخب کرنا
-    ATTACK, 
-    MOVE
-}
+// 13: درجہ بندی کا نظام
+enum class TerritoryLevel { POST, CITY, PROVINCE, COUNTRY, CONTINENT, PLANET, SOLAR_SYSTEM, GALAXY, UNIVERSE }
 
-// ہر چوکی میں موجود یونٹس کی تفصیل
+// 10: کارڈ سسٹم
+enum class CardType { ROCK, PAPER, SCISSORS }
+
 data class UnitCounts(
     var rocks: Int = 0,
     var papers: Int = 0,
@@ -25,28 +20,27 @@ data class UnitCounts(
     val total: Int get() = rocks + papers + scissors
 }
 
-// چوکی (Outpost) کا ماڈل
 data class Outpost(
     val id: Int,
-    val ownerId: Int,
+    var ownerId: Int,
     var units: UnitCounts,
-    val posX: Float, // نقشے پر پوزیشن
-    val posY: Float
+    var posX: Float,
+    var posY: Float,
+    var level: TerritoryLevel = TerritoryLevel.POST
 ) : Serializable
 
-// فوج (Army) کا اپڈیٹڈ ماڈل
 data class Army(
     val id: Int,
     val name: String,
     val color: Color,
     val isUserControlled: Boolean,
-    var allianceId: Int,
+    var cards: MutableList<CardType> = mutableListOf(), // 12: میکس 5 کارڈز
     val outposts: MutableList<Outpost> = mutableListOf()
 ) : Serializable
 
 object RPSRules {
     fun resolve(attacker: UnitType, defender: UnitType): Boolean? {
-        if (attacker == defender) return null
+        if (attacker == defender) return false // 8: سیم یونٹ پر ڈیفنڈر بھاری (اٹیکر مر جائے گا)
         return when {
             attacker == UnitType.ROCK && defender == UnitType.SCISSORS -> true
             attacker == UnitType.PAPER && defender == UnitType.ROCK -> true
