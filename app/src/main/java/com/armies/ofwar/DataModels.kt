@@ -1,5 +1,6 @@
 package com.armies.ofwar
 
+import androidx.compose.ui.graphics.Color
 import java.io.Serializable
 
 /**
@@ -10,40 +11,28 @@ enum class UnitType {
 }
 
 /**
- * جنگ کی ایک لہر (Wave) جو بٹن دبانے سے بنتی ہے
+ * ہر فوج (Army) کی مکمل معلومات
  */
-data class BattleUnit(
-    val type: UnitType,
-    val timestamp: Long = System.currentTimeMillis()
-)
-
-/**
- * علاقے کی معلومات
- */
-data class Territory(
+data class Army(
     val id: Int,
     val name: String,
-    var owner: PlayerType,
-    var armyCount: Int,
-    val neighbors: List<Int>,
-    // اس علاقے کی موجودہ جنگی لہر
-    val currentWave: MutableList<BattleUnit> = mutableListOf()
+    val color: Color,
+    val isUserControlled: Boolean,
+    var armyCount: Int = 20,
+    var allianceId: Int // جن کا الائنس آئی ڈی ایک ہوگا وہ دوست ہوں گے
 ) : Serializable
 
-enum class PlayerType {
-    USER, ENEMY, NEUTRAL
-}
-
 /**
- * مقابلے کا نتیجہ نکالنے کے لیے رولز
+ * مقابلے کے اصول
  */
 object RPSRules {
-    fun isWinner(attacker: UnitType, defender: UnitType): Boolean {
+    fun resolve(attacker: UnitType, defender: UnitType): Boolean? {
+        if (attacker == defender) return null
         return when {
             attacker == UnitType.ROCK && defender == UnitType.SCISSORS -> true
             attacker == UnitType.PAPER && defender == UnitType.ROCK -> true
             attacker == UnitType.SCISSORS && defender == UnitType.PAPER -> true
-            else -> false // اگر برابر ہو یا ڈیفنڈر جیتے
+            else -> false
         }
     }
 }
