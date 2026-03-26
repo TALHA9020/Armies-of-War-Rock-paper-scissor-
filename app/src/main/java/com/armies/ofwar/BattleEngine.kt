@@ -20,7 +20,7 @@ class BattleEngine {
     private val _defenderWave = MutableStateFlow<List<UnitType>>(emptyList())
     val defenderWave: StateFlow<List<UnitType>> = _defenderWave
 
-    // گیم سیٹ اپ: افواج کی تعداد اور اتحاد کا تعین
+    // گیم سیٹ اپ: افواج اور اتحاد
     fun setupGame(totalArmies: Int, userAllianceWith: List<Int>) {
         val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, 
                            Color.White, Color.Gray, Color.Blue, Color.LightGray, Color.DarkGray)
@@ -36,10 +36,9 @@ class BattleEngine {
         }
         _armies.value = newArmies
         _currentTurnId.value = 0
-        startAILogic() // کمپیوٹر کی باری کا آغاز
+        startAILogic()
     }
 
-    // لہر میں یونٹ شامل کرنا اور چوکی سے تعداد کم کرنا
     fun addUnitToWave(isAttacker: Boolean, type: UnitType) {
         val currentList = _armies.value.toMutableList()
         val actorId = if (isAttacker) _currentTurnId.value else getDefenderId()
@@ -60,7 +59,6 @@ class BattleEngine {
         return _armies.value.indexOfFirst { it.allianceId != attacker.allianceId && it.armyCount > 0 }
     }
 
-    // لہروں کا ٹکراؤ اور فیصلہ
     private fun processBattle() {
         val atk = _attackerWave.value.toMutableList()
         val def = _defenderWave.value.toMutableList()
@@ -70,11 +68,11 @@ class BattleEngine {
             when (result) {
                 true -> def.removeAt(0)
                 false -> atk.removeAt(0)
-                null -> atk.removeAt(0) // برابر ہونے پر ڈیفنڈر کا فائدہ
+                null -> atk.removeAt(0)
             }
             _attackerWave.value = atk
             _defenderWave.value = def
-            checkAndReturnUnits() // بچی ہوئی یونٹس کی واپسی
+            checkAndReturnUnits()
         }
     }
 
