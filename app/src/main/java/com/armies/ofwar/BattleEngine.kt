@@ -11,68 +11,45 @@ class BattleEngine {
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    private val _deployableUnits = MutableStateFlow(0)
-    val deployableUnits: StateFlow<Int> = _deployableUnits
+    // ڈپلائے ایبل یونٹس کی تفصیل
+    var rLeft = mutableStateOf(5)
+    var pLeft = mutableStateOf(5)
+    var sLeft = mutableStateOf(5)
 
     fun setupGame(totalPlayers: Int, playerColor: Color) {
         val list = mutableListOf<Army>()
         val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, Color.Blue, Color.White, Color.Gray, Color(0xFFFFA500), Color(0xFF4CAF50))
-        
         for (i in 0 until totalPlayers) {
-            val armyName = if (i == 0) "آپ" else "دشمن $i"
-            val armyColor = if (i == 0) playerColor else colors[i % colors.size]
-            val army = Army(i, armyName, armyColor, i == 0)
-            
-            repeat(8) { 
-                army.outposts.add(Outpost(
-                    id = (i * 1000) + it,
-                    ownerId = i,
-                    units = UnitCounts((10..15).random(), (10..15).random(), (10..15).random()),
-                    posX = (200..1800).random().toFloat(),
-                    posY = (300..2800).random().toFloat()
+            val army = Army(i, if(i==0) "آپ" else "دشمن $i", if (i == 0) playerColor else colors[i % colors.size], i == 0)
+            repeat(5) { 
+                army.outposts.add(Outpost(id = (i * 1000) + it, ownerId = i, 
+                    units = UnitCounts(10, 10, 10),
+                    posX = (300..1500).random().toFloat(), posY = (400..2500).random().toFloat()
                 ))
             }
             list.add(army)
         }
         _armies.value = list
-        resetDeployment()
     }
 
-    private fun resetDeployment() {
-        val currentArmy = _armies.value.find { it.id == _currentTurnId.value }
-        _deployableUnits.value = (currentArmy?.outposts?.size ?: 0) * 3
-    }
-
-    fun deployAt(postId: Int) {
-        if (_deployableUnits.value <= 0) return
+    fun deploySpecific(postId: Int, type: UnitType) {
         _armies.value = _armies.value.map { army ->
             army.copy(outposts = army.outposts.map { post ->
-                if (post.id == postId && post.ownerId == _currentTurnId.value) {
-                    _deployableUnits.value--
-                    post.copy(units = post.units.copy(rocks = post.units.rocks + 1))
+                if (post.id == postId) {
+                    when(type) {
+                        UnitType.ROCK -> { if(rLeft.value > 0) { rLeft.value--; post.units.rocks++ } }
+                        UnitType.PAPER -> { if(pLeft.value > 0) { pLeft.value--; post.units.papers++ } }
+                        UnitType.SCISSORS -> { if(sLeft.value > 0) { sLeft.value--; post.units.scissors++ } }
+                        else -> {}
+                    }
+                    post
                 } else post
             }.toMutableList())
         }
     }
 
-    fun moveUnits(fromId: Int, toId: Int) {
-        _armies.value = _armies.value.map { army ->
-            val from = army.outposts.find { it.id == fromId }
-            val to = army.outposts.find { it.id == toId }
-            if (from != null && to != null && from.units.total > 1 && from.ownerId == _currentTurnId.value) {
-                army.copy(outposts = army.outposts.map { post ->
-                    when (post.id) {
-                        fromId -> post.copy(units = post.units.copy(rocks = post.units.rocks - 1))
-                        toId -> post.copy(units = post.units.copy(rocks = post.units.rocks + 1))
-                        else -> post
-                    }
-                }.toMutableList())
-            } else army
-        }
-    }
-
     fun endTurn() {
         _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
-        resetDeployment()
+        rLeft.value = 5; pLeft.value = 5; sLeft.value = 5
     }
 }
