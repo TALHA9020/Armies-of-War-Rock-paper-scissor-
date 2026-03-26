@@ -3,9 +3,14 @@ package com.armies.ofwar
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,8 +27,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121212)) {
-                    BattleScreen(battleEngine)
+                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF1A1A1A)) {
+                    BattleField(battleEngine)
                 }
             }
         }
@@ -31,7 +36,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun BattleScreen(engine: BattleEngine) {
+fun BattleField(engine: BattleEngine) {
     val attackerWave by engine.attackerWave.collectAsState()
     val defenderWave by engine.defenderWave.collectAsState()
 
@@ -39,67 +44,100 @@ fun BattleScreen(engine: BattleEngine) {
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("BATTLE FIELD", color = Color.Yellow, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("ARMIES OF WAR", color = Color(0xFFFFD700), fontSize = 28.sp, fontWeight = FontWeight.Bold)
         
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
-        // دشمن کی لہر (Defender)
-        WaveDisplay(wave = defenderWave, label = "ENEMY WAVE", color = Color.Red)
+        // ڈیفنڈر کی لہر (اوپر)
+        WaveView(wave = defenderWave, label = "DEFENDER (ADVANTAGE)", color = Color.Red, isReversed = true)
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // آپ کی لہر (Attacker)
-        WaveDisplay(wave = attackerWave, label = "YOUR WAVE", color = Color.Cyan)
+        // اٹیکر کی لہر (نیچے)
+        WaveView(wave = attackerWave, label = "ATTACKER", color = Color.Cyan, isReversed = false)
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(30.dp))
 
-        // R, P, S کنٹرول بٹنز
+        // کنٹرول بٹنز
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            RPSButton("R", Color.Gray) { engine.addUnitToWave(true, UnitType.ROCK) }
-            RPSButton("P", Color.White) { engine.addUnitToWave(true, UnitType.PAPER) }
-            RPSButton("S", Color.LightGray) { engine.addUnitToWave(true, UnitType.SCISSORS) }
+            GameButton("R", Color.Gray) { engine.addUnitToWave(true, UnitType.ROCK) }
+            GameButton("P", Color.White) { engine.addUnitToWave(true, UnitType.PAPER) }
+            GameButton("S", Color.LightGray) { engine.addUnitToWave(true, UnitType.SCISSORS) }
         }
         
-        Spacer(modifier = Modifier.height(20.dp))
+        // ڈیفنڈر کے بٹنز (ٹیسٹنگ کے لیے)
+        Text("DEBUG: DEFENDER CONTROLS", color = Color.DarkGray, fontSize = 10.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = { engine.addUnitToWave(false, UnitType.ROCK) }) { Text("R") }
+            Button(onClick = { engine.addUnitToWave(false, UnitType.PAPER) }) { Text("P") }
+            Button(onClick = { engine.addUnitToWave(false, UnitType.SCISSORS) }) { Text("S") }
+        }
     }
 }
 
 @Composable
-fun WaveDisplay(wave: List<UnitType>, label: String, color: Color) {
+fun WaveView(wave: List<UnitType>, label: String, color: Color, isReversed: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = Color.Gray, fontSize = 12.sp)
-        Row(
+        Text(label, color = color.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
-                .background(Color(0xFF1E1E1E), MaterialTheme.shapes.medium)
+                .height(80.dp)
+                .background(Color(0xFF252525), RoundedCornerShape(12.dp))
                 .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            contentAlignment = Alignment.Center
         ) {
-            wave.forEach { unit ->
-                Text(
-                    text = unit.name.take(1),
-                    color = color,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                    fontSize = 18.sp
-                )
+            LazyRow(
+                reverseLayout = isReversed,
+                horizontalArrangement = if (isReversed) Arrangement.End else Arrangement.Start,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(wave) { unit ->
+                    AnimatedUnit(unit, color)
+                }
             }
         }
     }
 }
 
 @Composable
-fun RPSButton(label: String, color: Color, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.size(70.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333))
+fun AnimatedUnit(unit: UnitType, color: Color) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(300)) + expandHorizontally(),
+        exit = fadeOut()
     ) {
-        Text(label, color = color, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Card(
+            modifier = Modifier.padding(4.dp),
+            colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.2f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, color)
+        ) {
+            Text(
+                text = unit.name.take(1),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                color = color,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun GameButton(label: String, color: Color, onClick: () -> Unit) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.size(80.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF333333))
+    ) {
+        Text(label, color = color, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
