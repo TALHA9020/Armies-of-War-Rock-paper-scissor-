@@ -11,20 +11,19 @@ class BattleEngine {
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    // 1, 2: گیم سیٹ اپ اور آرمیز کا انتخاب
     fun setupGame(totalPlayers: Int, playerColor: Color) {
         val list = mutableListOf<Army>()
-        val colors = listOf(Color.Red, Color.Green, Color.Yellow, Color.Cyan, Color.Magenta, Color.Blue, Color.White, Color.Gray)
+        val colors = listOf(Color.Red, Color.Green, Color.Yellow, Color.Cyan, Color.Magenta, Color.Blue, Color.White, Color.Gray, Color(0xFFFFA500), Color(0xFF4CAF50))
         
         for (i in 0 until totalPlayers) {
-            val army = Army(i, "Army ${i+1}", if (i == 0) playerColor else colors[i % colors.size], i == 0)
-            repeat(20) { // 3: ہزاروں پوسٹس کا آغاز (یہاں 20 سے مثال دی گئی ہے)
+            val army = Army(i, if(i==0) "آپ" else "دشمن ${i}", if (i == 0) playerColor else colors[i % colors.size], i == 0)
+            repeat(5) { 
                 army.outposts.add(Outpost(
                     id = (i * 1000) + it,
                     ownerId = i,
-                    units = UnitCounts((15..25).random(), (15..25).random(), (15..25).random()),
-                    posX = (100..5000).random().toFloat(),
-                    posY = (100..5000).random().toFloat()
+                    units = UnitCounts((10..15).random(), (10..15).random(), (10..15).random()),
+                    posX = (200..1500).random().toFloat(),
+                    posY = (200..2500).random().toFloat()
                 ))
             }
             list.add(army)
@@ -32,37 +31,29 @@ class BattleEngine {
         _armies.value = list
     }
 
-    // 5: اٹیک کے لیے 10 یونٹس کی شرط
-    fun canInitiateAttack(outpost: Outpost): Boolean {
-        return outpost.units.total >= 10
+    // باری کے شروع میں یونٹس دینا
+    fun getDeployableAmount(armyId: Int): Int {
+        val army = _armies.value.find { it.id == armyId }
+        return (army?.outposts?.size ?: 0) * 5
     }
 
-    // 11: کارڈ ٹریڈنگ لاجک
-    fun performTrade(armyId: Int): Int {
-        val army = _armies.value.find { it.id == armyId } ?: return 0
-        if (army.cards.size < 3) return 0
-        val distinctCards = army.cards.take(3).distinct().size
-        army.cards = army.cards.drop(3).toMutableList()
-        return if (distinctCards == 1) 500 else 1000
-    }
-
-    // 13: پروگریس لیول اپ گریڈ
-    fun updateTerritoryLevel(army: Army) {
-        val count = army.outposts.size
-        val newLevel = when {
-            count >= 1000 -> TerritoryLevel.UNIVERSE
-            count >= 500 -> TerritoryLevel.GALAXY
-            count >= 100 -> TerritoryLevel.PLANET
-            count >= 50 -> TerritoryLevel.COUNTRY
-            count >= 10 -> TerritoryLevel.CITY
-            else -> TerritoryLevel.POST
+    fun deployUnits(postId: Int, armyId: Int) {
+        _armies.value = _armies.value.map { army ->
+            if (army.id == armyId) {
+                army.copy(outposts = army.outposts.map { post ->
+                    if (post.id == postId) {
+                        post.copy(units = post.units.copy(
+                            rocks = post.units.rocks + 2,
+                            papers = post.units.papers + 2,
+                            scissors = post.units.scissors + 1
+                        ))
+                    } else post
+                }.toMutableList())
+            } else army
         }
-        army.outposts.forEach { it.level = newLevel }
     }
 
     fun endTurn() {
-        val nextTurn = (_currentTurnId.value + 1) % _armies.value.size
-        _currentTurnId.value = nextTurn
-        _armies.value.find { it.id == nextTurn }?.let { updateTerritoryLevel(it) }
+        _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
     }
 }
