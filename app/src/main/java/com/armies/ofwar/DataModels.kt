@@ -7,7 +7,6 @@ enum class UnitType {
     ROCK, PAPER, SCISSORS, NONE
 }
 
-// ٹرن کے دو حصے: حملہ یا یونٹس کی منتقلی
 enum class TurnPhase {
     ATTACK, MOVE
 }
@@ -17,8 +16,8 @@ data class Army(
     val name: String,
     val color: Color,
     val isUserControlled: Boolean,
-    var armyCount: Int = 20,
-    var allianceId: Int
+    val armyCount: Int = 20,
+    val allianceId: Int
 ) : Serializable
 
 object RPSRules {
