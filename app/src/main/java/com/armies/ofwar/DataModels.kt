@@ -8,17 +8,17 @@ enum class UnitType {
     ROCK, PAPER, SCISSORS, NONE
 }
 
-// ہر فوج کی مکمل معلومات
+// ہر فوج (Army) کی مکمل معلومات
 data class Army(
     val id: Int,
     val name: String,
     val color: Color,
     val isUserControlled: Boolean,
     var armyCount: Int = 20,
-    var allianceId: Int // جن کا آئی ڈی ایک ہوگا وہ دوست ہوں گے
+    var allianceId: Int // جن کا آئی ڈی ایک جیسا ہوگا وہ اتحادی ہوں گے
 ) : Serializable
 
-// مقابلے کے اصول: روک > سیزر، پیپر > روک، سیزر > پیپر
+// مقابلے کے اصول (RPS Rules)
 object RPSRules {
     fun resolve(attacker: UnitType, defender: UnitType): Boolean? {
         if (attacker == defender) return null
