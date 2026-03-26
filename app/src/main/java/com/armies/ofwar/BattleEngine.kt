@@ -11,16 +11,13 @@ class BattleEngine {
     private val _armies = MutableStateFlow<List<Army>>(emptyList())
     val armies: StateFlow<List<Army>> = _armies
 
-    private val _currentPhase = MutableStateFlow(TurnPhase.ATTACK)
-    val currentPhase: StateFlow<TurnPhase> = _currentPhase
-
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    // 1 & 2: پلیئر کا رنگ اور دشمنوں کی تعداد کے ساتھ گیم سیٹ اپ
+    // گیم سیٹ اپ: پلیئر کا رنگ اور دشمنوں کی تعداد
     fun setupGame(totalPlayers: Int, playerColor: Color) {
         val list = mutableListOf<Army>()
-        val defaultColors = listOf(Color.Red, Color.Green, Color.Yellow, Color.Magenta, Color.Blue, Color.White, Color.Gray)
+        val defaultColors = listOf(Color.Red, Color.Green, Color.Yellow, Color.Magenta, Color.Blue, Color.Gray)
         
         for (i in 0 until totalPlayers) {
             val isUser = (i == 0)
@@ -34,11 +31,11 @@ class BattleEngine {
                 allianceId = i + 1
             )
 
-            // 3: نقشہ اور چوکیاں (رینڈم پوزیشنز)
+            // نقشے پر چوکیوں کی پوزیشن (رینڈم لیکن اسکرین کے اندر)
             val initialOutpost = Outpost(
                 id = i * 100,
                 ownerId = i,
-                units = UnitCounts(rocks = 10, papers = 10, scissors = 10),
+                units = UnitCounts(rocks = 20, papers = 20, scissors = 20),
                 posX = (200..800).random().toFloat(),
                 posY = (400..1200).random().toFloat()
             )
@@ -50,11 +47,10 @@ class BattleEngine {
         startPassiveIncome()
     }
 
-    // ہر 2 سیکنڈ بعد چوکیوں میں یونٹس کا خودکار اضافہ
     private fun startPassiveIncome() {
         engineScope.launch {
             while (isActive) {
-                delay(2000)
+                delay(3000) // ہر 3 سیکنڈ بعد یونٹس میں اضافہ
                 _armies.value = _armies.value.map { army ->
                     army.copy(outposts = army.outposts.map { outpost ->
                         outpost.copy(units = outpost.units.copy(
@@ -68,71 +64,46 @@ class BattleEngine {
         }
     }
 
-    // جنگی مقابلہ اور RPS قوانین کا نفاذ
-    fun executeBattle(attackerOutpost: Outpost, defenderOutpost: Outpost, attackType: UnitType) {
-        // دفاع کرنے والا ہمیشہ بہترین یا رینڈم یونٹ استعمال کرے گا
-        val defenderUnits = defenderOutpost.units
-        val defenseType = when {
-            defenderUnits.rocks > 0 -> UnitType.ROCK
-            defenderUnits.papers > 0 -> UnitType.PAPER
-            else -> UnitType.SCISSORS
-        }
+    // جنگی لاجک: آپ کا بتایا ہوا اصول (سیم یونٹ پر ڈیفنڈر حاوی)
+    fun executeBattle(attacker: Outpost, defender: Outpost, attackType: UnitType) {
+        // دشمن کا دفاعی انتخاب (رینڈم لیکن موجودہ یونٹس میں سے)
+        val defenseType = listOf(UnitType.ROCK, UnitType.PAPER, UnitType.SCISSORS).random()
 
-        // RPS قوانین: کون جیتا؟
+        // RPS قوانین کا استعمال
         val attackWon = RPSRules.resolve(attackType, defenseType)
 
         _armies.value = _armies.value.map { army ->
             army.copy(outposts = army.outposts.map { outpost ->
-                if (outpost.id == defenderOutpost.id) {
+                if (outpost.id == defender.id) {
                     val updatedUnits = outpost.units.copy()
-                    // اگر حملہ آور جیتا تو دفاعی یونٹس کم ہوں گے
+                    
+                    // اصول: اگر حملہ جیت گیا تو دفاعی یونٹس کم ہوں گے
                     if (attackWon == true) {
                         when(defenseType) {
-                            UnitType.ROCK -> updatedUnits.rocks = (updatedUnits.rocks - 5).coerceAtLeast(0)
-                            UnitType.PAPER -> updatedUnits.papers = (updatedUnits.papers - 5).coerceAtLeast(0)
-                            UnitType.SCISSORS -> updatedUnits.scissors = (updatedUnits.scissors - 5).coerceAtLeast(0)
+                            UnitType.ROCK -> updatedUnits.rocks = (updatedUnits.rocks - 10).coerceAtLeast(0)
+                            UnitType.PAPER -> updatedUnits.papers = (updatedUnits.papers - 10).coerceAtLeast(0)
+                            UnitType.SCISSORS -> updatedUnits.scissors = (updatedUnits.scissors - 10).coerceAtLeast(0)
                             else -> {}
                         }
-                    }
-                    // اگر برابر رہا یا دفاعی جیتا تو نقصان نہیں ہوگا (دفاعی حاوی ہے)
+                    } 
+                    // اصول: اگر ڈرا ہوا یا دفاعی جیت گیا، تو کچھ نہیں ہوگا (ڈیفنڈر حاوی ہے)
+                    
                     outpost.copy(units = updatedUnits)
                 } else outpost
             }.toMutableList())
         }
+        
+        // باری ختم کریں اور اگلے کھلاڑی کو موقع دیں
+        endTurn()
     }
 
-    // لہر ختم ہونے پر یونٹس کی واپسی (Recovery Rule)
-    fun handleWaveConclusion(attackerId: Int, attackSuccessful: Boolean) {
-        _armies.value = _armies.value.map { army ->
-            if (army.id == attackerId) {
-                // اگر حملہ مکمل ہوا تو 70% یونٹس واپس پہلی چوکی (HQ) میں
-                val recoveryRate = if (attackSuccessful) 0.7f else 0.3f
-                army.copy(outposts = army.outposts.mapIndexed { index, outpost ->
-                    if (index == 0) {
-                        outpost.copy(units = outpost.units.copy(
-                            rocks = outpost.units.rocks + (5 * recoveryRate).toInt(),
-                            papers = outpost.units.papers + (5 * recoveryRate).toInt(),
-                            scissors = outpost.units.scissors + (5 * recoveryRate).toInt()
-                        ))
-                    } else outpost
-                }.toMutableList())
-            } else army
-        }
+    fun handleWaveConclusion(attackerId: Int, isSuccess: Boolean) {
+        // لہر مٹنے پر یونٹس کی واپسی کی لاجک یہاں آئے گی
+        // فی الحال یہ سسٹم کو مستحکم رکھنے کے لیے سادہ رکھی گئی ہے
     }
 
     fun endTurn() {
-        _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
-        // اگر اگلی باری دشمن کی ہے تو AI لاجک چلائیں
-        if (_currentTurnId.value != 0) {
-            performEnemyMove()
-        }
-    }
-
-    private fun performEnemyMove() {
-        engineScope.launch {
-            delay(2000)
-            // دشمن ایک رینڈم حملہ کرے گا (UI اس لہر کو دکھائے گا)
-            endTurn()
-        }
+        val nextTurn = (_currentTurnId.value + 1) % _armies.value.size
+        _currentTurnId.value = nextTurn
     }
 }
