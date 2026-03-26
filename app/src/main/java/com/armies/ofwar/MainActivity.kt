@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,7 +53,7 @@ fun SetupScreen(onStart: (Int, List<Int>) -> Unit) {
             items((1 until armyCount.toInt()).toList()) { id ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = allies.contains(id), onCheckedChange = { 
-                        if (it) allies.add(id) else allies.remove(id) 
+                        if (it) allies.add(id) else allies.remove(id)
                     })
                     Text("Army ${id + 1}", color = Color.White)
                 }
@@ -71,15 +70,11 @@ fun SetupScreen(onStart: (Int, List<Int>) -> Unit) {
 fun BattleField(engine: BattleEngine) {
     val armies by engine.armies.collectAsState()
     val turnId by engine.currentTurnId.collectAsState()
-    val attackerWave by engine.attackerWave.collectAsState()
-    val defenderWave by engine.defenderWave.collectAsState()
-
+    
     val currentArmy = armies.getOrNull(turnId)
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("TURN: ${currentArmy?.name ?: ""}", color = currentArmy?.color ?: Color.White)
-        
-        // یہاں پرانا WaveView اور Buttons والا کوڈ آئے گا جو پہلے دیا گیا تھا
-        // صرف رنگ اور ڈیٹا اب engine.armies سے متحرک (Dynamic) طور پر آئے گا
+        // یہاں آپ کی لہروں (Waves) اور بٹنوں کا ڈیزائن ڈسپلے ہوگا
     }
 }
