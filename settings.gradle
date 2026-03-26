@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-// اسے بدل کر آپ کی ایپ کا اصل نام دے دیتے ہیں
-rootProject.name = "Smart SRT Player"
+// پروجیکٹ کا اصل نام یہاں اپ ڈیٹ کر دیا گیا ہے
+rootProject.name = "Armies of War"
 include ':app'
