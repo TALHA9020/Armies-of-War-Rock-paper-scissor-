@@ -20,7 +20,10 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # یہ لائن اس پرمیشن ایرر کو ختم کر دے گی
+    # یہ کمانڈ گریڈل ریپر کی فائلیں خود بنائے گی
+    - name: Setup Gradle Wrapper
+      run: gradle wrapper
+
     - name: Make gradlew executable
       run: chmod +x gradlew
 
