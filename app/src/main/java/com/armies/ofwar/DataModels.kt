@@ -6,7 +6,7 @@ import java.io.Serializable
 // 7: یونٹس کی اقسام
 enum class UnitType { ROCK, PAPER, SCISSORS, NONE }
 
-// 13: درجہ بندی کا نظام (پوسٹ سے کائنات تک)
+// 13: کہکشاں سے کائنات تک کی درجہ بندی
 enum class TerritoryLevel(val label: String) { 
     POST("پوسٹ"), CITY("شہر"), PROVINCE("صوبہ"), COUNTRY("ملک"), 
     CONTINENT("بر اعظم"), PLANET("سیارہ"), SOLAR_SYSTEM("نظام شمسی"), 
@@ -44,7 +44,7 @@ data class Army(
 
 object RPSRules {
     fun resolve(attacker: UnitType, defender: UnitType): Boolean? {
-        if (attacker == defender) return false // 8: سیم یونٹ پر ڈیفنڈر بھاری
+        if (attacker == defender) return false // 8: سیم یونٹ پر دفاع بھاری
         return when {
             attacker == UnitType.ROCK && defender == UnitType.SCISSORS -> true
             attacker == UnitType.PAPER && defender == UnitType.ROCK -> true
