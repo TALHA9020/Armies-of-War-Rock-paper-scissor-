@@ -20,7 +20,12 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # یہ قدم گریڈل کی تمام ضروری فائلیں (بشمول جار فائل) خود تیار کر دے گا
+    # یہ سٹیپ انٹرنیٹ سے براہ راست جار فائل ڈاؤن لوڈ کر کے آپ کا ایرر ختم کر دے گا
+    - name: Download Gradle Wrapper JAR
+      run: |
+        mkdir -p gradle/wrapper
+        curl -L https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
