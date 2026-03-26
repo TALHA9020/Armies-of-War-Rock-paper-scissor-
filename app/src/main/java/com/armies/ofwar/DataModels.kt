@@ -16,8 +16,8 @@ data class Army(
     val name: String,
     val color: Color,
     val isUserControlled: Boolean,
-    val armyCount: Int = 20,
-    val allianceId: Int
+    var armyCount: Int = 20,
+    var allianceId: Int
 ) : Serializable
 
 object RPSRules {
