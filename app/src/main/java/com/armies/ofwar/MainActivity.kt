@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var gameState by remember { mutableStateOf("SETUP") }
-            var appMode by remember { mutableStateOf("DEPLOY") } // DEPLOY, ATTACK
+            var appMode by remember { mutableStateOf("DEPLOY") } 
             var selectedType by remember { mutableStateOf(UnitType.ROCK) }
             var attackerPost by remember { mutableStateOf<Outpost?>(null) }
 
@@ -63,22 +63,19 @@ fun MapScreen(engine: BattleEngine, mode: String, selectedUnitType: UnitType,
     val armies by engine.armies.collectAsState()
     var offset by remember { mutableStateOf(Offset.Zero) }
     
-    // 1: ٹچ سکرول لاجک
     Box(Modifier.fillMaxSize().pointerInput(Unit) {
         detectTransformGestures { _, pan, _, _ -> offset += pan }
     }) {
         Canvas(Modifier.fillMaxSize().graphicsLayer(translationX = offset.x, translationY = offset.y)) {
             armies.forEach { army ->
                 army.outposts.forEach { post ->
-                    // 2: یونٹ کے حساب سے دائرے کا سائز
-                    val radius = 50f + (post.units.total * 2f)
+                    val radius = 60f + (post.units.total * 1.5f)
                     drawCircle(color = army.color, radius = radius, center = Offset(post.posX, post.posY))
                     drawCircle(color = Color.White.copy(0.2f), radius = radius + 5, center = Offset(post.posX, post.posY), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
                 }
             }
         }
 
-        // 2: نمبر بالکل دائرے کے اندر
         armies.forEach { army ->
             army.outposts.forEach { post ->
                 Box(Modifier.offset((post.posX + offset.x / 2.5f).dp, (post.posY + offset.y / 2.5f).dp)
@@ -89,7 +86,6 @@ fun MapScreen(engine: BattleEngine, mode: String, selectedUnitType: UnitType,
             }
         }
 
-        // 3 & 4: ڈپلائمنٹ اور اٹیک کنٹرولز
         Card(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(10.dp), colors = CardDefaults.cardColors(containerColor = Color.Black.copy(0.8f))) {
             Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (mode == "DEPLOY") {
@@ -100,9 +96,10 @@ fun MapScreen(engine: BattleEngine, mode: String, selectedUnitType: UnitType,
                     }
                     Button(onClick = { onModeChange("ATTACK") }, Modifier.fillMaxWidth()) { Text("اٹیک موڈ شروع کریں") }
                 } else {
-                    Text("اٹیک موڈ: پہلے اپنی پوسٹ پھر دشمن کی پوسٹ چنیں", color = Color.Red)
+                    Text("اٹیک موڈ: پہلے اپنی پوسٹ پھر دشمن کی پوسٹ چنیں", color = Color.Red, fontSize = 12.sp)
                     Button(onClick = { onModeChange("DEPLOY") }) { Text("واپس ڈپلائے پر جائیں") }
                 }
+                Button(onClick = { engine.endTurn() }, modifier = Modifier.padding(top = 4.dp)) { Text("باری ختم کریں") }
             }
         }
     }
@@ -119,16 +116,16 @@ fun UnitBtn(label: String, type: UnitType, current: UnitType, onClick: (UnitType
 
 @Composable
 fun BattleArenaUI(onExit: () -> Unit) {
-    // 5: R P S بٹنز کے ساتھ بیٹل فارمیشن
     Column(Modifier.fillMaxSize().background(Color.Black), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("فارمیشن سیٹ کریں اور حملہ کریں!", color = Color.White, fontSize = 20.sp)
-        Spacer(Modifier.height(30.dp))
-        Row {
-            Button(onClick = { /* Rock Attack */ }) { Text("Rock") }
-            Button(onClick = { /* Paper Attack */ }) { Text("Paper") }
-            Button(onClick = { /* Scissor Attack */ }) { Text("Scissor") }
+        Text("بیٹل فارمیشن سیٹ کریں", color = Color.White, fontSize = 20.sp)
+        Row(Modifier.padding(20.dp)) {
+            Button(onClick = { }) { Text("Rock") }
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = { }) { Text("Paper") }
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = { }) { Text("Scissor") }
         }
-        Button(onClick = onExit, Modifier.padding(top = 50.dp)) { Text("جنگ ختم کریں") }
+        Button(onClick = onExit) { Text("جنگ ختم کریں") }
     }
 }
 
@@ -139,10 +136,14 @@ fun SetupUI(onStart: (Color, Int) -> Unit) {
     val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, Color.Blue, Color.White, Color.Gray, Color(0xFFFFA500), Color(0xFF4CAF50))
 
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("آرمی کا رنگ منتخب کریں", color = Color.White)
-        Row(Modifier.horizontalScroll(rememberScrollState())) {
-            colors.forEach { Box(Modifier.size(45.dp).background(it, CircleShape).border(if(selColor == it) 3.dp else 0.dp, Color.White, CircleShape).clickable { selColor = it }); Spacer(Modifier.width(8.dp)) }
+        Text("اپنی آرمی کا رنگ منتخب کریں", color = Color.White, fontSize = 20.sp)
+        Row(Modifier.padding(20.dp).horizontalScroll(rememberScrollState())) {
+            colors.forEach { color ->
+                Box(Modifier.size(45.dp).background(color, CircleShape).border(if(selColor == color) 3.dp else 0.dp, Color.White, CircleShape).clickable { selColor = color })
+                Spacer(Modifier.width(8.dp))
+            }
         }
+        Text("دشمنوں کی تعداد: ${enemies.toInt()}", color = Color.White)
         Slider(value = enemies, onValueChange = { enemies = it }, valueRange = 2f..10f, modifier = Modifier.padding(20.dp))
         Button(onClick = { onStart(selColor, enemies.toInt()) }) { Text("گیم شروع کریں") }
     }
