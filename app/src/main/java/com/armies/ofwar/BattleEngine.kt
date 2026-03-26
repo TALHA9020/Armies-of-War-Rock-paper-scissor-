@@ -56,20 +56,18 @@ class BattleEngine {
         _currentPhase.value = phase
     }
 
-    // کامیاب حملے کی صورت میں اسے کال کریں
     fun markCaptureSuccess() {
         hasCapturedThisTurn = true
     }
 
     fun endTurn() {
-        // اگر صارف کی باری تھی اور اس نے حملہ جیتا، تو کارڈ دیں
         if (_currentTurnId.value == 0 && hasCapturedThisTurn) {
             _userCards.value += 1
         }
         
         hasCapturedThisTurn = false
         _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
-        _currentPhase.value = TurnPhase.ATTACK // اگلی باری پھر اٹیک فیز سے شروع ہوگی
+        _currentPhase.value = TurnPhase.ATTACK 
     }
 
     // کارڈز کا تبادلہ (4 کارڈز = 20 یونٹس)
@@ -77,7 +75,6 @@ class BattleEngine {
         if (_userCards.value >= 4) {
             _userCards.value -= 4
             val currentList = _armies.value.toMutableList()
-            // صرف یوزر (ID: 0) کو یونٹس ملیں گے
             currentList[0] = currentList[0].copy(armyCount = currentList[0].armyCount + 20)
             _armies.value = currentList
         }
