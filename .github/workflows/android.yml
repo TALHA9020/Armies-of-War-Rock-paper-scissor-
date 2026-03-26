@@ -20,17 +20,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # یہ کمانڈ گریڈل ریپر کی فائلیں خود بنائے گی
-    - name: Setup Gradle Wrapper
-      run: gradle wrapper
-
-    - name: Make gradlew executable
-      run: chmod +x gradlew
-
-    - name: Build with Gradle
+    # ہم گریڈل کا ایک مخصوص اور مستحکم ورژن (8.5) استعمال کریں گے
+    - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.5'
+
+    - name: Make gradlew executable
+      run: chmod +x gradlew
 
     - name: Build Debug APK
       run: ./gradlew assembleDebug
