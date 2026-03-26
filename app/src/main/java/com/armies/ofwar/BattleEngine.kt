@@ -7,103 +7,59 @@ import kotlinx.coroutines.flow.StateFlow
 
 class BattleEngine {
     private val engineScope = CoroutineScope(Dispatchers.Default + Job())
-    
     private val _armies = MutableStateFlow<List<Army>>(emptyList())
     val armies: StateFlow<List<Army>> = _armies
 
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    // گیم سیٹ اپ: پلیئر کا رنگ اور دشمنوں کی تعداد
+    // 1, 2, 3: گیم سیٹ اپ اور ہزاروں پوسٹس
     fun setupGame(totalPlayers: Int, playerColor: Color) {
         val list = mutableListOf<Army>()
-        val defaultColors = listOf(Color.Red, Color.Green, Color.Yellow, Color.Magenta, Color.Blue, Color.Gray)
+        val colors = listOf(Color.Red, Color.Green, Color.Yellow, Color.Cyan, Color.Magenta, 
+                          Color.Blue, Color.White, Color.Gray, Color.DarkGray, Color.LightGray)
         
         for (i in 0 until totalPlayers) {
-            val isUser = (i == 0)
-            val armyColor = if (isUser) playerColor else defaultColors[i % defaultColors.size]
+            val army = Army(i, "Army ${i+1}", if (i == 0) playerColor else colors[i % colors.size], i == 0)
             
-            val newArmy = Army(
-                id = i,
-                name = if (isUser) "You" else "Enemy $i",
-                color = armyColor,
-                isUserControlled = isUser,
-                allianceId = i + 1
-            )
-
-            // نقشے پر چوکیوں کی پوزیشن (رینڈم لیکن اسکرین کے اندر)
-            val initialOutpost = Outpost(
-                id = i * 100,
-                ownerId = i,
-                units = UnitCounts(rocks = 20, papers = 20, scissors = 20),
-                posX = (200..800).random().toFloat(),
-                posY = (400..1200).random().toFloat()
-            )
-            newArmy.outposts.add(initialOutpost)
-            list.add(newArmy)
-        }
-        
-        _armies.value = list
-        startPassiveIncome()
-    }
-
-    private fun startPassiveIncome() {
-        engineScope.launch {
-            while (isActive) {
-                delay(3000) // ہر 3 سیکنڈ بعد یونٹس میں اضافہ
-                _armies.value = _armies.value.map { army ->
-                    army.copy(outposts = army.outposts.map { outpost ->
-                        outpost.copy(units = outpost.units.copy(
-                            rocks = outpost.units.rocks + 1,
-                            papers = outpost.units.papers + 1,
-                            scissors = outpost.units.scissors + 1
-                        ))
-                    }.toMutableList())
-                }
+            // 3: رینڈم ہزاروں پوسٹس کی تخلیق (مثال کے طور پر یہاں فی آرمی 50 دکھائی گئی ہیں)
+            repeat(50) {
+                army.outposts.add(Outpost(
+                    id = (i * 1000) + it,
+                    ownerId = i,
+                    units = UnitCounts((5..15).random(), (5..15).random(), (5..15).random()),
+                    posX = (0..5000).random().toFloat(),
+                    posY = (0..5000).random().toFloat()
+                ))
             }
+            list.add(army)
         }
+        _armies.value = list
     }
 
-    // جنگی لاجک: آپ کا بتایا ہوا اصول (سیم یونٹ پر ڈیفنڈر حاوی)
-    fun executeBattle(attacker: Outpost, defender: Outpost, attackType: UnitType) {
-        // دشمن کا دفاعی انتخاب (رینڈم لیکن موجودہ یونٹس میں سے)
-        val defenseType = listOf(UnitType.ROCK, UnitType.PAPER, UnitType.SCISSORS).random()
-
-        // RPS قوانین کا استعمال
-        val attackWon = RPSRules.resolve(attackType, defenseType)
-
-        _armies.value = _armies.value.map { army ->
-            army.copy(outposts = army.outposts.map { outpost ->
-                if (outpost.id == defender.id) {
-                    val updatedUnits = outpost.units.copy()
-                    
-                    // اصول: اگر حملہ جیت گیا تو دفاعی یونٹس کم ہوں گے
-                    if (attackWon == true) {
-                        when(defenseType) {
-                            UnitType.ROCK -> updatedUnits.rocks = (updatedUnits.rocks - 10).coerceAtLeast(0)
-                            UnitType.PAPER -> updatedUnits.papers = (updatedUnits.papers - 10).coerceAtLeast(0)
-                            UnitType.SCISSORS -> updatedUnits.scissors = (updatedUnits.scissors - 10).coerceAtLeast(0)
-                            else -> {}
-                        }
-                    } 
-                    // اصول: اگر ڈرا ہوا یا دفاعی جیت گیا، تو کچھ نہیں ہوگا (ڈیفنڈر حاوی ہے)
-                    
-                    outpost.copy(units = updatedUnits)
-                } else outpost
-            }.toMutableList())
-        }
-        
-        // باری ختم کریں اور اگلے کھلاڑی کو موقع دیں
-        endTurn()
+    // 4: ڈپلائے ایبل یونٹس (پوسٹس کی تعداد کے حساب سے)
+    fun calculateDeployable(armyId: Int): Int {
+        val army = _armies.value.find { it.id == armyId }
+        return (army?.outposts?.size ?: 0) * 5 
     }
 
-    fun handleWaveConclusion(attackerId: Int, isSuccess: Boolean) {
-        // لہر مٹنے پر یونٹس کی واپسی کی لاجک یہاں آئے گی
-        // فی الحال یہ سسٹم کو مستحکم رکھنے کے لیے سادہ رکھی گئی ہے
+    // 11: ٹریڈ سسٹم
+    fun performTrade(armyId: Int): Int {
+        val army = _armies.value.find { it.id == armyId }
+        if (army != null && army.cards.size >= 3) {
+            army.cards.clear()
+            return 500 // ٹریڈ پر اضافی یونٹس
+        }
+        return 0
+    }
+
+    // 9: موو یونٹ (پڑوسی پوسٹ پر انتقال)
+    fun moveUnits(fromPostId: Int, toPostId: Int, count: UnitCounts) {
+        // یہاں منتقلی کی لاجک
     }
 
     fun endTurn() {
-        val nextTurn = (_currentTurnId.value + 1) % _armies.value.size
-        _currentTurnId.value = nextTurn
+        _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
+        // 14: کمپیوٹر کی باری (تیزی کی سطح کے ساتھ)
     }
 }
