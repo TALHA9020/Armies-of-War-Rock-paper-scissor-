@@ -25,16 +25,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var gameState by remember { mutableStateOf("SETUP") }
-            
             MaterialTheme {
-                Surface(color = Color.Black) {
+                Surface(color = Color(0xFF050505)) {
                     when (gameState) {
                         "SETUP" -> SetupUI { color, count ->
                             engine.setupGame(count, color)
                             gameState = "MAP"
                         }
                         "MAP" -> GameMapView(engine)
-                        "BATTLE" -> BattleArenaUI()
                     }
                 }
             }
@@ -45,8 +43,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GameMapView(engine: BattleEngine) {
     val armies by engine.armies.collectAsState()
-    
-    // 3: ٹچ سکرول اور زوم (ہزاروں پوسٹس کے لیے)
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
@@ -61,36 +57,46 @@ fun GameMapView(engine: BattleEngine) {
         )) {
             armies.forEach { army ->
                 army.outposts.forEach { post ->
-                    drawCircle(color = army.color, radius = 20f, center = Offset(post.posX, post.posY))
+                    drawCircle(color = army.color, radius = 30f, center = Offset(post.posX, post.posY))
                 }
             }
+        }
+        
+        // باری کی اطلاع اور کارڈز
+        Column(Modifier.padding(16.dp).align(Alignment.TopStart)) {
+            val currentArmy = armies.find { it.id == engine.currentTurnId.collectAsState().value }
+            Text("باری: ${currentArmy?.name}", color = Color.White)
+            Text("لیول: ${currentArmy?.outposts?.firstOrNull()?.level?.label}", color = Color.Yellow)
         }
     }
 }
 
 @Composable
-fun BattleArenaUI() {
-    // 6: ویو فائٹنگ بٹنز (R P S)
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Bottom) {
-        Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Button(onClick = { /* فائر راک ویو */ }) { Text("R") }
-            Button(onClick = { /* فائر پیپر ویو */ }) { Text("P") }
-            Button(onClick = { /* فائر سیزر ویو */ }) { Text("S") }
+fun WaveClashEffect(attackerUnit: UnitType, defenderUnit: UnitType) {
+    val clashAnimation = remember { Animatable(0f) }
+    val result = RPSRules.resolve(attackerUnit, defenderUnit)
+
+    LaunchedEffect(Unit) {
+        clashAnimation.animateTo(1f, tween(500))
+    }
+
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(150.dp)) {
+            drawCircle(
+                color = if (result == true) Color.Cyan else Color.Red,
+                radius = clashAnimation.value * 150f,
+                alpha = 1f - clashAnimation.value
+            )
         }
     }
 }
 
 @Composable
 fun SetupUI(onStart: (Color, Int) -> Unit) {
-    // 1, 2: آرمی کا رنگ اور تعداد منتخب کرنے کی سکرین
-    var selectedColor by remember { mutableStateOf(Color.Red) }
     var armyCount by remember { mutableStateOf(2f) }
-
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("آرمی کا رنگ اور تعداد چنیں", color = Color.White, fontSize = 20.sp)
-        Slider(value = armyCount, onValueChange = { armyCount = it }, valueRange = 2f..10f)
-        Button(onClick = { onStart(selectedColor, armyCount.toInt()) }) {
-            Text("کائنات کا سفر شروع کریں")
-        }
+        Text("آرمیز کی تعداد منتخب کریں: ${armyCount.toInt()}", color = Color.White)
+        Slider(value = armyCount, onValueChange = { armyCount = it }, valueRange = 2f..10f, modifier = Modifier.padding(30.dp))
+        Button(onClick = { onStart(Color.Cyan, armyCount.toInt()) }) { Text("سفر شروع کریں") }
     }
 }
