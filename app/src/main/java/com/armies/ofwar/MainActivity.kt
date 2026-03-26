@@ -27,6 +27,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
+                // گیم شروع ہوتے ہی کمپیوٹر (AI) کا اٹیک شروع کرنے کے لیے
+                LaunchedEffect(Unit) {
+                    battleEngine.startAIEnemy()
+                }
+
                 Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF1A1A1A)) {
                     BattleField(battleEngine)
                 }
@@ -48,17 +53,17 @@ fun BattleField(engine: BattleEngine) {
         
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ڈیفنڈر کی لہر (اوپر)
+        // ڈیفنڈر کی لہر (اوپر) - اسے سرخ رنگ دیا گیا ہے
         WaveView(wave = defenderWave, label = "DEFENDER (ADVANTAGE)", color = Color.Red, isReversed = true)
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // اٹیکر کی لہر (نیچے)
+        // اٹیکر کی لہر (نیچے) - اسے نیلا (Cyan) رنگ دیا گیا ہے
         WaveView(wave = attackerWave, label = "ATTACKER", color = Color.Cyan, isReversed = false)
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // کنٹرول بٹنز
+        // کنٹرول بٹنز (R, P, S)
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -68,7 +73,7 @@ fun BattleField(engine: BattleEngine) {
             GameButton("S", Color.LightGray) { engine.addUnitToWave(true, UnitType.SCISSORS) }
         }
         
-        // ڈیفنڈر کے بٹنز (ٹیسٹنگ کے لیے)
+        // ڈیفنڈر کے بٹنز (صرف مینوئل ٹیسٹنگ کے لیے)
         Text("DEBUG: DEFENDER CONTROLS", color = Color.DarkGray, fontSize = 10.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = { engine.addUnitToWave(false, UnitType.ROCK) }) { Text("R") }
@@ -125,7 +130,7 @@ fun AnimatedUnit(unit: UnitType, color: Color) {
                 color = color,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
-            )
+            ) [cite: 33]
         }
     }
 }
@@ -136,7 +141,7 @@ fun GameButton(label: String, color: Color, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.size(80.dp),
         shape = CircleShape,
-        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF333333))
+        [cite_start]colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF333333))
     ) {
         Text(label, color = color, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
     }
