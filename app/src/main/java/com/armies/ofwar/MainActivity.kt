@@ -43,6 +43,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GameMapView(engine: BattleEngine) {
     val armies by engine.armies.collectAsState()
+    
+    // 3: ہزاروں پوسٹس کے لیے ٹچ سکرول اور زوم
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
@@ -64,8 +66,9 @@ fun GameMapView(engine: BattleEngine) {
         
         // باری کی اطلاع اور کارڈز
         Column(Modifier.padding(16.dp).align(Alignment.TopStart)) {
-            val currentArmy = armies.find { it.id == engine.currentTurnId.collectAsState().value }
-            Text("باری: ${currentArmy?.name}", color = Color.White)
+            val currentArmyId by engine.currentTurnId.collectAsState()
+            val currentArmy = armies.find { it.id == currentArmyId }
+            Text("باری: ${currentArmy?.name}", color = Color.White, fontSize = 18.sp)
             Text("لیول: ${currentArmy?.outposts?.firstOrNull()?.level?.label}", color = Color.Yellow)
         }
     }
@@ -95,8 +98,10 @@ fun WaveClashEffect(attackerUnit: UnitType, defenderUnit: UnitType) {
 fun SetupUI(onStart: (Color, Int) -> Unit) {
     var armyCount by remember { mutableStateOf(2f) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("آرمیز کی تعداد منتخب کریں: ${armyCount.toInt()}", color = Color.White)
+        Text("آرمیز کی تعداد منتخب کریں: ${armyCount.toInt()}", color = Color.White, fontSize = 20.sp)
         Slider(value = armyCount, onValueChange = { armyCount = it }, valueRange = 2f..10f, modifier = Modifier.padding(30.dp))
-        Button(onClick = { onStart(Color.Cyan, armyCount.toInt()) }) { Text("سفر شروع کریں") }
+        Button(onClick = { onStart(Color.Cyan, armyCount.toInt()) }) { 
+            Text("کائنات کا سفر شروع کریں", fontSize = 18.sp) 
+        }
     }
 }
