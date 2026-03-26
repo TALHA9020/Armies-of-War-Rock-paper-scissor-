@@ -1,5 +1,6 @@
 package com.armies.ofwar
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +12,7 @@ class BattleEngine {
     private val _currentTurnId = MutableStateFlow(0)
     val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    // ڈپلائے ایبل یونٹس کی تفصیل
+    // ڈپلائے ایبل یونٹس کے لیے درست اسٹیٹ
     var rLeft = mutableStateOf(5)
     var pLeft = mutableStateOf(5)
     var sLeft = mutableStateOf(5)
@@ -36,13 +37,14 @@ class BattleEngine {
         _armies.value = _armies.value.map { army ->
             army.copy(outposts = army.outposts.map { post ->
                 if (post.id == postId) {
+                    val newUnits = post.units.copy()
                     when(type) {
-                        UnitType.ROCK -> { if(rLeft.value > 0) { rLeft.value--; post.units.rocks++ } }
-                        UnitType.PAPER -> { if(pLeft.value > 0) { pLeft.value--; post.units.papers++ } }
-                        UnitType.SCISSORS -> { if(sLeft.value > 0) { sLeft.value--; post.units.scissors++ } }
+                        UnitType.ROCK -> { if(rLeft.value > 0) { rLeft.value--; newUnits.rocks++ } }
+                        UnitType.PAPER -> { if(pLeft.value > 0) { pLeft.value--; newUnits.papers++ } }
+                        UnitType.SCISSORS -> { if(sLeft.value > 0) { sLeft.value--; newUnits.scissors++ } }
                         else -> {}
                     }
-                    post
+                    post.copy(units = newUnits)
                 } else post
             }.toMutableList())
         }
@@ -50,6 +52,8 @@ class BattleEngine {
 
     fun endTurn() {
         _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
-        rLeft.value = 5; pLeft.value = 5; sLeft.value = 5
+        rLeft.value = 5
+        pLeft.value = 5
+        sLeft.value = 5
     }
 }
