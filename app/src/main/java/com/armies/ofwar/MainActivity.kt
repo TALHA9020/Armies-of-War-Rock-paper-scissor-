@@ -3,7 +3,6 @@ package com.armies.ofwar
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,13 +22,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             var gameStarted by remember { mutableStateOf(false) }
             MaterialTheme {
-                if (!gameStarted) {
-                    SetupScreen { count, allies ->
-                        battleEngine.setupGame(count, allies)
-                        gameStarted = true
+                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF1A1A1A)) {
+                    if (!gameStarted) {
+                        SetupScreen { count, allies ->
+                            battleEngine.setupGame(count, allies)
+                            gameStarted = true
+                        }
+                    } else {
+                        BattleField(battleEngine)
                     }
-                } else {
-                    BattleField(battleEngine)
                 }
             }
         }
@@ -42,25 +43,25 @@ fun SetupScreen(onStart: (Int, List<Int>) -> Unit) {
     val allies = remember { mutableStateListOf<Int>() }
 
     Column(modifier = Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("GAME SETUP", fontSize = 30.sp, color = Color.White)
-        Spacer(Modifier.height(20.dp))
+        Text("ARMIES OF WAR - SETUP", fontSize = 24.sp, color = Color.White)
+        Spacer(Modifier.height(30.dp))
         
-        Text("Total Armies: ${armyCount.toInt()}", color = Color.Gray)
-        Slider(value = armyCount, valueRange = 2f..10f, onValueChange = { armyCount = it })
+        Text("Total Armies: ${armyCount.toInt()}", color = Color.Cyan)
+        Slider(value = armyCount, valueRange = 2f..10f, steps = 8, onValueChange = { armyCount = it })
 
-        Text("Select Your Allies:", color = Color.Gray)
-        LazyColumn(Modifier.height(200.dp)) {
+        Text("Select Your Allies (Alliance):", color = Color.Gray, modifier = Modifier.padding(top = 20.dp))
+        LazyColumn(Modifier.weight(1f)) {
             items((1 until armyCount.toInt()).toList()) { id ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = allies.contains(id), onCheckedChange = { 
-                        if (it) allies.add(id) else allies.remove(id)
+                        if (it) allies.add(id) else allies.remove(id) 
                     })
                     Text("Army ${id + 1}", color = Color.White)
                 }
             }
         }
 
-        Button(onClick = { onStart(armyCount.toInt(), allies.toList()) }) {
+        Button(onClick = { onStart(armyCount.toInt(), allies.toList()) }, modifier = Modifier.fillMaxWidth().padding(10.dp)) {
             Text("START WAR")
         }
     }
@@ -70,11 +71,13 @@ fun SetupScreen(onStart: (Int, List<Int>) -> Unit) {
 fun BattleField(engine: BattleEngine) {
     val armies by engine.armies.collectAsState()
     val turnId by engine.currentTurnId.collectAsState()
-    
     val currentArmy = armies.getOrNull(turnId)
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("TURN: ${currentArmy?.name ?: ""}", color = currentArmy?.color ?: Color.White)
-        // یہاں آپ کی لہروں (Waves) اور بٹنوں کا ڈیزائن ڈسپلے ہوگا
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("CURRENT TURN: ${currentArmy?.name ?: ""}", color = currentArmy?.color ?: Color.White, fontSize = 20.sp)
+        Spacer(Modifier.height(20.dp))
+        
+        // یہاں ہم لہروں اور ایکشن بٹن کا ڈیزائن شامل کر سکتے ہیں
+        Text("Battle in Progress...", color = Color.Gray)
     }
 }
