@@ -11,42 +11,38 @@ class BattleEngine {
     private val _armies = MutableStateFlow<List<Army>>(emptyList())
     val armies: StateFlow<List<Army>> = _armies
 
-    private val _currentTurnId = MutableStateFlow(0)
-    val currentTurnId: StateFlow<Int> = _currentTurnId
-
     private val _currentPhase = MutableStateFlow(TurnPhase.ATTACK)
     val currentPhase: StateFlow<TurnPhase> = _currentPhase
 
     private val _userCards = MutableStateFlow(0)
     val userCards: StateFlow<Int> = _userCards
 
-    private val _attackerWave = MutableStateFlow<List<UnitType>>(emptyList())
-    val attackerWave: StateFlow<List<UnitType>> = _attackerWave
+    private val _currentTurnId = MutableStateFlow(0)
+    val currentTurnId: StateFlow<Int> = _currentTurnId
 
-    private val _defenderWave = MutableStateFlow<List<UnitType>>(emptyList())
-    val defenderWave: StateFlow<List<UnitType>> = _defenderWave
+    private var hasCapturedThisTurn = false
 
-    private var didCaptureInThisTurn = false
-
-    fun setupGame(totalArmies: Int, userAllianceWith: List<Int>) {
-        val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, 
-                           Color.White, Color.Gray, Color.Blue, Color.LightGray, Color.DarkGray)
+    fun setupGame(totalArmies: Int) {
+        val list = mutableListOf<Army>()
+        val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta)
         
-        val newArmies = (0 until totalArmies).map { id ->
-            Army(
-                id = id,
-                name = if (id == 0) "You" else "Army ${id + 1}",
-                color = colors[id % colors.size],
-                isUserControlled = (id == 0),
-                allianceId = if (id == 0 || userAllianceWith.contains(id)) 1 else id + 10 
+        for (i in 0 until totalArmies) {
+            list.add(
+                Army(
+                    id = i,
+                    name = if (i == 0) "You" else "Enemy $i",
+                    color = colors[i % colors.size],
+                    isUserControlled = (i == 0),
+                    armyCount = 20,
+                    allianceId = if (i == 0) 1 else i + 10
+                )
             )
         }
-        _armies.value = newArmies
+        _armies.value = list
         startPassiveIncome()
-        startAILogic()
     }
 
-    // ہر سیکنڈ ہر چوکی میں 1 یونٹ کا اضافہ
+    // ہر سیکنڈ 1 یونٹ کا اضافہ (آٹو جنریشن)
     private fun startPassiveIncome() {
         engineScope.launch {
             while (isActive) {
@@ -60,86 +56,30 @@ class BattleEngine {
         _currentPhase.value = phase
     }
 
-    fun addUnitToWave(isAttacker: Boolean, type: UnitType) {
-        val currentList = _armies.value.toMutableList()
-        val actorId = if (isAttacker) _currentTurnId.value else getDefenderId()
-        
-        if (actorId != -1 && currentList[actorId].armyCount > 0) {
-            if (_currentPhase.value == TurnPhase.MOVE && isAttacker) {
-                // MOVE فیز میں یونٹ براہ راست دوسری چوکی (اتحادی) کو منتقل ہوتی ہے
-                moveToAlly(type)
-            } else {
-                currentList[actorId] = currentList[actorId].copy(armyCount = currentList[actorId].armyCount - 1)
-                _armies.value = currentList
-                if (isAttacker) _attackerWave.value += type else _defenderWave.value += type
-                processBattle()
-            }
-        }
-    }
-
-    private fun moveToAlly(type: UnitType) {
-        val allyId = _armies.value.indexOfFirst { it.id != 0 && it.allianceId == 1 }
-        if (allyId != -1) updateArmyCount(allyId, 1)
-    }
-
-    private fun processBattle() {
-        val atk = _attackerWave.value.toMutableList()
-        val def = _defenderWave.value.toMutableList()
-
-        if (atk.isNotEmpty() && def.isNotEmpty()) {
-            val result = RPSRules.resolve(atk.first(), def.first())
-            if (result == true) {
-                def.removeAt(0)
-                didCaptureInThisTurn = true // کامیاب حملے کی نشانی
-            } else atk.removeAt(0)
-            
-            _attackerWave.value = atk
-            _defenderWave.value = def
-            checkAndReturnUnits()
-        }
-    }
-
-    private fun checkAndReturnUnits() {
-        if (_defenderWave.value.isEmpty() && _attackerWave.value.isNotEmpty()) {
-            updateArmyCount(_currentTurnId.value, _attackerWave.value.size)
-            _attackerWave.value = emptyList()
-        }
+    // کامیاب حملے کی صورت میں اسے کال کریں
+    fun markCaptureSuccess() {
+        hasCapturedThisTurn = true
     }
 
     fun endTurn() {
-        if (didCaptureInThisTurn && _currentTurnId.value == 0) {
-            _userCards.value += 1 // کارڈ ملنا
+        // اگر صارف کی باری تھی اور اس نے حملہ جیتا، تو کارڈ دیں
+        if (_currentTurnId.value == 0 && hasCapturedThisTurn) {
+            _userCards.value += 1
         }
-        didCaptureInThisTurn = false
+        
+        hasCapturedThisTurn = false
         _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
+        _currentPhase.value = TurnPhase.ATTACK // اگلی باری پھر اٹیک فیز سے شروع ہوگی
     }
 
+    // کارڈز کا تبادلہ (4 کارڈز = 20 یونٹس)
     fun exchangeCards() {
         if (_userCards.value >= 4) {
             _userCards.value -= 4
-            updateArmyCount(0, 20)
-        }
-    }
-
-    private fun updateArmyCount(armyId: Int, count: Int) {
-        val list = _armies.value.toMutableList()
-        list[armyId] = list[armyId].copy(armyCount = list[armyId].armyCount + count)
-        _armies.value = list
-    }
-
-    private fun getDefenderId() = _armies.value.indexOfFirst { it.allianceId != 1 && it.armyCount > 0 }
-
-    private fun startAILogic() {
-        engineScope.launch {
-            while (isActive) {
-                if (_currentTurnId.value != 0) {
-                    delay(2000)
-                    addUnitToWave(true, UnitType.values().filter { it != UnitType.NONE }.random())
-                    delay(1000)
-                    endTurn()
-                }
-                delay(500)
-            }
+            val currentList = _armies.value.toMutableList()
+            // صرف یوزر (ID: 0) کو یونٹس ملیں گے
+            currentList[0] = currentList[0].copy(armyCount = currentList[0].armyCount + 20)
+            _armies.value = currentList
         }
     }
 }
