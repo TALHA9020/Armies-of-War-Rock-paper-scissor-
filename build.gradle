@@ -1,20 +1,23 @@
-// Top-level build file
+// Top-level build file: Armies of War
 buildscript {
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
+        // ورژن کو ہم نے مستحکم (Stable) رکھا ہے تاکہ بلڈ میں مسئلہ نہ آئے
         classpath 'com.android.tools.build:gradle:8.1.0'
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
     }
 }
 
 plugins {
+    // یہ پلگ انز ایپ کو اینڈرائیڈ اور کوٹلن سپورٹ فراہم کرتے ہیں
     id 'com.android.application' version '8.1.0' apply false
     id 'org.jetbrains.kotlin.android' version '1.9.0' apply false
 }
 
+// یہ ٹاسک پرانے بلڈ فولڈرز کو صاف کرنے کے لیے ہے
 tasks.register('clean', Delete) {
     delete rootProject.buildDir
 }
