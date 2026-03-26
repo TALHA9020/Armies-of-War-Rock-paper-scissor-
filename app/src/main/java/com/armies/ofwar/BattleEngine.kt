@@ -42,7 +42,6 @@ class BattleEngine {
         startPassiveIncome()
     }
 
-    // ہر سیکنڈ 1 یونٹ کا اضافہ (آٹو جنریشن)
     private fun startPassiveIncome() {
         engineScope.launch {
             while (isActive) {
@@ -64,13 +63,11 @@ class BattleEngine {
         if (_currentTurnId.value == 0 && hasCapturedThisTurn) {
             _userCards.value += 1
         }
-        
         hasCapturedThisTurn = false
         _currentTurnId.value = (_currentTurnId.value + 1) % _armies.value.size
         _currentPhase.value = TurnPhase.ATTACK 
     }
 
-    // کارڈز کا تبادلہ (4 کارڈز = 20 یونٹس)
     fun exchangeCards() {
         if (_userCards.value >= 4) {
             _userCards.value -= 4
