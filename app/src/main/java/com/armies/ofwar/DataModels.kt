@@ -3,30 +3,47 @@ package com.armies.ofwar
 import java.io.Serializable
 
 /**
- * گیم کے ہر علاقے (Territory) کی معلومات
+ * روک، پیپر، سیزر کی اقسام
+ */
+enum class UnitType {
+    ROCK, PAPER, SCISSORS, NONE
+}
+
+/**
+ * جنگ کی ایک لہر (Wave) جو بٹن دبانے سے بنتی ہے
+ */
+data class BattleUnit(
+    val type: UnitType,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+/**
+ * علاقے کی معلومات
  */
 data class Territory(
     val id: Int,
     val name: String,
     var owner: PlayerType,
     var armyCount: Int,
-    val neighbors: List<Int> // ان علاقوں کے IDs جن سے یہ جڑا ہوا ہے
+    val neighbors: List<Int>,
+    // اس علاقے کی موجودہ جنگی لہر
+    val currentWave: MutableList<BattleUnit> = mutableListOf()
 ) : Serializable
 
-/**
- * کھلاڑی کی اقسام
- */
 enum class PlayerType {
-    USER,      // آپ (نیلا رنگ)
-    ENEMY,     // دشمن (سرخ رنگ)
-    NEUTRAL    // خالی علاقہ (سرمئی رنگ)
+    USER, ENEMY, NEUTRAL
 }
 
 /**
- * جنگ کے نتیجے کا ڈیٹا
+ * مقابلے کا نتیجہ نکالنے کے لیے رولز
  */
-data class BattleResult(
-    val attackerWon: Boolean,
-    val remainingAttackerArmies: Int,
-    val remainingDefenderArmies: Int
-)
+object RPSRules {
+    fun isWinner(attacker: UnitType, defender: UnitType): Boolean {
+        return when {
+            attacker == UnitType.ROCK && defender == UnitType.SCISSORS -> true
+            attacker == UnitType.PAPER && defender == UnitType.ROCK -> true
+            attacker == UnitType.SCISSORS && defender == UnitType.PAPER -> true
+            else -> false // اگر برابر ہو یا ڈیفنڈر جیتے
+        }
+    }
+}
