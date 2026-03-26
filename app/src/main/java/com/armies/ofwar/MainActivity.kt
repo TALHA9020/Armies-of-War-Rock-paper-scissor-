@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val engine = BattleEngine()
@@ -25,6 +27,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var gameState by remember { mutableStateOf("SETUP") }
+            var selectedAttacker by remember { mutableStateOf<Outpost?>(null) }
+            var selectedTarget by remember { mutableStateOf<Outpost?>(null) }
+
             MaterialTheme {
                 Surface(color = Color(0xFF050505)) {
                     when (gameState) {
@@ -32,7 +37,29 @@ class MainActivity : ComponentActivity() {
                             engine.setupGame(count, color)
                             gameState = "MAP"
                         }
-                        "MAP" -> GameMapView(engine)
+                        "MAP" -> GameMapView(
+                            engine = engine,
+                            onPostClick = { post ->
+                                if (post.ownerId == 0) {
+                                    selectedAttacker = post // اپنی پوسٹ سلیکٹ کریں
+                                } else if (selectedAttacker != null) {
+                                    if (engine.canInitiateAttack(selectedAttacker!!)) {
+                                        selectedTarget = post // دشمن کو ٹارگٹ کریں
+                                        gameState = "BATTLE"
+                                    }
+                                }
+                            }
+                        )
+                        "BATTLE" -> BattleArenaUI(
+                            attacker = selectedAttacker!!,
+                            defender = selectedTarget!!,
+                            onFinish = {
+                                gameState = "MAP"
+                                selectedAttacker = null
+                                selectedTarget = null
+                                engine.endTurn()
+                            }
+                        )
                     }
                 }
             }
@@ -41,10 +68,39 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun GameMapView(engine: BattleEngine) {
+fun BattleArenaUI(attacker: Outpost, defender: Outpost, onFinish: () -> Unit) {
+    var playerWave by remember { mutableStateOf(UnitType.NONE) }
+    var aiWave by remember { mutableStateOf(UnitType.NONE) }
+
+    // 14: AI کا خودکار فائر سسٹم
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1200) 
+            aiWave = listOf(UnitType.ROCK, UnitType.PAPER, UnitType.SCISSORS).random()
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("بیٹل فیز", color = Color.Red, fontSize = 24.sp)
+            
+            // 6, 7: ویو اینیمیشن
+            WaveClashEffect(playerWave, aiWave)
+            
+            // 6: پلیئر اٹیک بٹنز
+            Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Button(onClick = { playerWave = UnitType.ROCK }) { Text("Rock") }
+                Button(onClick = { playerWave = UnitType.PAPER }) { Text("Paper") }
+                Button(onClick = { playerWave = UnitType.SCISSORS }) { Text("Scissors") }
+            }
+            Button(onClick = onFinish) { Text("واپس میپ پر جائیں") }
+        }
+    }
+}
+
+@Composable
+fun GameMapView(engine: BattleEngine, onPostClick: (Outpost) -> Unit) {
     val armies by engine.armies.collectAsState()
-    
-    // 3: ہزاروں پوسٹس کے لیے ٹچ سکرول اور زوم
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
@@ -59,49 +115,46 @@ fun GameMapView(engine: BattleEngine) {
         )) {
             armies.forEach { army ->
                 army.outposts.forEach { post ->
-                    drawCircle(color = army.color, radius = 30f, center = Offset(post.posX, post.posY))
+                    drawCircle(color = army.color, radius = 35f, center = Offset(post.posX, post.posY))
                 }
             }
         }
         
-        // باری کی اطلاع اور کارڈز
-        Column(Modifier.padding(16.dp).align(Alignment.TopStart)) {
-            val currentArmyId by engine.currentTurnId.collectAsState()
-            val currentArmy = armies.find { it.id == currentArmyId }
-            Text("باری: ${currentArmy?.name}", color = Color.White, fontSize = 18.sp)
-            Text("لیول: ${currentArmy?.outposts?.firstOrNull()?.level?.label}", color = Color.Yellow)
+        // 3: سکرول ایبل کلک ایبل ایریاز
+        armies.forEach { army ->
+            army.outposts.forEach { post ->
+                Box(Modifier.offset(x = (post.posX / 3).dp, y = (post.posY / 3).dp)
+                    .size(40.dp)
+                    .clickable { onPostClick(post) }
+                )
+            }
         }
     }
 }
 
 @Composable
-fun WaveClashEffect(attackerUnit: UnitType, defenderUnit: UnitType) {
-    val clashAnimation = remember { Animatable(0f) }
-    val result = RPSRules.resolve(attackerUnit, defenderUnit)
-
-    LaunchedEffect(Unit) {
-        clashAnimation.animateTo(1f, tween(500))
+fun WaveClashEffect(attacker: UnitType, defender: UnitType) {
+    val anim = remember { Animatable(0f) }
+    val result = RPSRules.resolve(attacker, defender)
+    LaunchedEffect(attacker, defender) {
+        anim.snapTo(0f)
+        anim.animateTo(1f, tween(500))
     }
-
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(150.dp)) {
-            drawCircle(
-                color = if (result == true) Color.Cyan else Color.Red,
-                radius = clashAnimation.value * 150f,
-                alpha = 1f - clashAnimation.value
-            )
-        }
+    Canvas(Modifier.size(100.dp)) {
+        drawCircle(
+            color = if (result == true) Color.Cyan else Color.Red,
+            radius = anim.value * 100f,
+            alpha = 1f - anim.value
+        )
     }
 }
 
 @Composable
 fun SetupUI(onStart: (Color, Int) -> Unit) {
-    var armyCount by remember { mutableStateOf(2f) }
+    var count by remember { mutableStateOf(2f) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("آرمیز کی تعداد منتخب کریں: ${armyCount.toInt()}", color = Color.White, fontSize = 20.sp)
-        Slider(value = armyCount, onValueChange = { armyCount = it }, valueRange = 2f..10f, modifier = Modifier.padding(30.dp))
-        Button(onClick = { onStart(Color.Cyan, armyCount.toInt()) }) { 
-            Text("کائنات کا سفر شروع کریں", fontSize = 18.sp) 
-        }
+        Text("آرمیز کی تعداد: ${count.toInt()}", color = Color.White)
+        Slider(value = count, onValueChange = { count = it }, valueRange = 2f..10f, modifier = Modifier.padding(30.dp))
+        Button(onClick = { onStart(Color.Cyan, count.toInt()) }) { Text("کائنات کا سفر شروع کریں") }
     }
 }
