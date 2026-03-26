@@ -1,78 +1,114 @@
 package com.armies.ofwar
 
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class BattleEngine {
-    // فوج کی کل تعداد
-    val userArmyCount = MutableStateFlow(20)
-    val enemyArmyCount = MutableStateFlow(20)
+    private val engineScope = CoroutineScope(Dispatchers.Default + Job())
+    
+    // تمام افواج کی لسٹ
+    private val _armies = MutableStateFlow<List<Army>>(emptyList())
+    val armies: StateFlow<List<Army>> = _armies
 
+    // موجودہ باری (Turn) والے کھلاڑی کا ID
+    private val _currentTurnId = MutableStateFlow(0)
+    val currentTurnId: StateFlow<Int> = _currentTurnId
+
+    // لہروں کا ڈیٹا
     private val _attackerWave = MutableStateFlow<List<UnitType>>(emptyList())
     val attackerWave: StateFlow<List<UnitType>> = _attackerWave
 
     private val _defenderWave = MutableStateFlow<List<UnitType>>(emptyList())
     val defenderWave: StateFlow<List<UnitType>> = _defenderWave
 
-    private val engineScope = CoroutineScope(Dispatchers.Default + Job())
+    // گیم سیٹ اپ: افواج کی تعداد اور اتحاد
+    fun setupGame(totalArmies: Int, userAllianceWith: List<Int>) {
+        val colors = listOf(Color.Cyan, Color.Red, Color.Green, Color.Yellow, Color.Magenta, 
+                           Color.White, Color.Gray, Color.Blue, Color.LightGray, Color.DarkGray)
+        
+        val newArmies = (0 until totalArmies).map { id ->
+            Army(
+                id = id,
+                name = if (id == 0) "You" else "Enemy ${id}",
+                color = colors[id % colors.size],
+                isUserControlled = (id == 0),
+                allianceId = if (id == 0 || userAllianceWith.contains(id)) 1 else id + 10 
+            )
+        }
+        _armies.value = newArmies
+        _currentTurnId.value = 0
+    }
 
     fun addUnitToWave(isAttacker: Boolean, type: UnitType) {
-        if (isAttacker) {
-            if (userArmyCount.value > 0) {
-                userArmyCount.value -= 1 // چوکی سے یونٹ نکلا
-                _attackerWave.value = _attackerWave.value + type
-            }
-        } else {
-            if (enemyArmyCount.value > 0) {
-                enemyArmyCount.value -= 1 // دشمن کی چوکی سے یونٹ نکلا
-                _defenderWave.value = _defenderWave.value + type
-            }
+        val currentList = _armies.value.toMutableList()
+        val actorIndex = if (isAttacker) _currentTurnId.value else getDefenderId()
+        
+        if (actorIndex != -1 && currentList[actorIndex].armyCount > 0) {
+            currentList[actorIndex] = currentList[actorIndex].copy(
+                armyCount = currentList[actorIndex].armyCount - 1
+            )
+            _armies.value = currentList
+            
+            if (isAttacker) _attackerWave.value += type 
+            else _defenderWave.value += type
+            
+            processBattle()
         }
-        processBattle()
+    }
+
+    private fun getDefenderId(): Int {
+        // فی الحال یہ سادہ رکھا ہے: اٹیکر کے علاوہ جو پہلا دشمن ملے
+        val attacker = _armies.value[_currentTurnId.value]
+        return _armies.value.indexOfFirst { it.allianceId != attacker.allianceId && it.armyCount > 0 }
     }
 
     private fun processBattle() {
-        val atkList = _attackerWave.value.toMutableList()
-        val defList = _defenderWave.value.toMutableList()
+        val atk = _attackerWave.value.toMutableList()
+        val def = _defenderWave.value.toMutableList()
 
-        if (atkList.isNotEmpty() && defList.isNotEmpty()) {
-            val result = RPSRules.resolve(atkList.first(), defList.first())
+        if (atk.isNotEmpty() && def.isNotEmpty()) {
+            val result = RPSRules.resolve(atk.first(), def.first())
             when (result) {
-                true -> defList.removeAt(0) // اٹیکر جیتا
-                false -> atkList.removeAt(0) // ڈیفنڈر جیتا
-                null -> atkList.removeAt(0)  // برابر (ڈیفنڈر ایڈوانٹیج)
+                true -> def.removeAt(0)
+                false -> atk.removeAt(0)
+                null -> atk.removeAt(0) // Defender Advantage
             }
-            
-            _attackerWave.value = atkList
-            _defenderWave.value = defList
-
-            // جب ایک طرف کی لہر ختم ہو جائے تو چیک کریں
+            _attackerWave.value = atk
+            _defenderWave.value = def
             checkAndReturnUnits()
         }
     }
 
     private fun checkAndReturnUnits() {
-        // اگر دشمن کی لہر ختم ہو گئی، تو آپ کی باقی یونٹس واپس چوکی میں
         if (_defenderWave.value.isEmpty() && _attackerWave.value.isNotEmpty()) {
-            userArmyCount.value += _attackerWave.value.size
+            updateArmyCount(_currentTurnId.value, _attackerWave.value.size)
             _attackerWave.value = emptyList()
-        }
-        // اگر آپ کی لہر ختم ہو گئی، تو دشمن کی باقی یونٹس اس کی چوکی میں واپس
-        else if (_attackerWave.value.isEmpty() && _defenderWave.value.isNotEmpty()) {
-            enemyArmyCount.value += _defenderWave.value.size
+            // ٹرن ختم کرنے کی لاجک یہاں آ سکتی ہے
+        } else if (_attackerWave.value.isEmpty() && _defenderWave.value.isNotEmpty()) {
+            updateArmyCount(getDefenderId(), _defenderWave.value.size)
             _defenderWave.value = emptyList()
         }
     }
 
-    fun startAIEnemy() {
+    private fun updateArmyCount(armyId: Int, count: Int) {
+        if (armyId == -1) return
+        val list = _armies.value.toMutableList()
+        list[armyId] = list[armyId].copy(armyCount = list[armyId].armyCount + count)
+        _armies.value = list
+    }
+
+    // AI کی ٹرن شروع کرنا
+    fun startAILogic() {
         engineScope.launch {
             while (isActive) {
-                delay(1200) // دشمن کے حملے کا وقفہ
-                if (enemyArmyCount.value > 0) {
-                    val randomUnit = UnitType.values().filter { it != UnitType.NONE }.random()
-                    addUnitToWave(false, randomUnit)
+                val currentArmy = _armies.value.getOrNull(_currentTurnId.value)
+                if (currentArmy != null && !currentArmy.isUserControlled) {
+                    delay(1000)
+                    addUnitToWave(true, UnitType.values().filter { it != UnitType.NONE }.random())
                 }
+                delay(500)
             }
         }
     }
