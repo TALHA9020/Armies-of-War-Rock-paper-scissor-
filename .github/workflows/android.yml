@@ -20,7 +20,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # یہ قدم گریڈل کی ضروری فائلیں خود بخود ڈاؤن لوڈ اور سیٹ کر دے گا
+    # یہ قدم گریڈل کی تمام ضروری فائلیں (بشمول جار فائل) خود تیار کر دے گا
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
