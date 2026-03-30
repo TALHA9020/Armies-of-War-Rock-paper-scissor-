@@ -4,18 +4,16 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
     private val engine = BattleEngine()
@@ -23,60 +21,70 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                RiskGameScreen()
+            MaterialTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF1A1A1A)) {
+                    RiskGameEngine()
+                }
             }
         }
     }
 
     @Composable
-    fun RiskGameScreen() {
-        // Sample Players
-        val p1 = Player(1, "Player 1 (You)", Color(0xFF2196F3), true)
-        val p2 = Player(2, "AI Enemy", Color(0xFFF44336), false)
+    fun RiskGameEngine() {
+        // --- Game State ---
+        val players = remember { listOf(
+            Player(1, "You", Color(0xFF2196F3)),
+            Player(2, "AI Enemy", Color(0xFFF44336))
+        ) }
 
-        // Initial Map (4 Territories)
         var territories by remember { mutableStateOf(listOf(
-            Territory(0, "Base Alpha", 1, 10, listOf(1, 2)),
-            Territory(1, "Frontier A", 2, 5, listOf(0, 3)),
-            Territory(2, "Frontier B", 2, 5, listOf(0, 3)),
-            Territory(3, "Enemy Core", 2, 12, listOf(1, 2))
+            Territory(0, "Base", 1, 10, listOf(1, 2), 0.2f, 0.2f),
+            Territory(1, "Border North", 2, 5, listOf(0, 3), 0.5f, 0.2f),
+            Territory(2, "Border South", 2, 4, listOf(0, 3), 0.5f, 0.5f),
+            Territory(3, "Enemy Capital", 2, 15, listOf(1, 2), 0.8f, 0.4f)
         )) }
 
-        var selectedTerritory by remember { mutableStateOf<Territory?>(null) }
+        var selectedFrom by remember { mutableStateOf<Territory?>(null) }
+        var selectedTo by remember { mutableStateOf<Territory?>(null) }
         var attackerChoices = remember { mutableStateListOf<RPSChoice>() }
+        var turnPhase by remember { mutableStateOf("ATTACK") } // REINFORCE, ATTACK, END
 
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Text("Armies of War: Strategy", style = MaterialTheme.typography.headlineMedium)
-            
-            Spacer(modifier = Modifier.height(16.dp))
+        // --- UI Layout ---
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Armies of War", color = Color.White, fontSize = 24.sp)
+                Badge { Text("Phase: $turnPhase") }
+            }
 
-            // Map Representation
-            LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.weight(1f)) {
-                items(territories) { territory ->
-                    val owner = if (territory.ownerId == 1) p1 else p2
-                    Card(
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .height(100.dp)
-                            .clickable { selectedTerritory = territory },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (selectedTerritory?.id == territory.id) Color.Yellow else owner.color
-                        )
-                    ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Text("${territory.name}\nTroops: ${territory.troops}", color = Color.White)
+            // Map Area (Interactive)
+            Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFF252525))) {
+                territories.forEach { territory ->
+                    TerritoryNode(
+                        territory = territory,
+                        isSelected = selectedFrom?.id == territory.id || selectedTo?.id == territory.id,
+                        onCLick = {
+                            if (selectedFrom == null && territory.ownerId == 1) {
+                                selectedFrom = territory
+                            } else if (selectedFrom != null && territory.id != selectedFrom!!.id) {
+                                if (selectedFrom!!.neighbors.contains(territory.id)) {
+                                    selectedTo = territory
+                                } else {
+                                    selectedFrom = null
+                                    selectedTo = null
+                                }
+                            }
                         }
-                    }
+                    )
                 }
             }
 
-            // Battle Controls
-            if (selectedTerritory != null && selectedTerritory?.ownerId == 2) {
-                Card(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("حملہ کریں: ${selectedTerritory?.name}")
-                        Text("اپنے 3 داؤ منتخب کریں: ${attackerChoices.size}/3")
+            // Controls Area
+            Card(modifier = Modifier.fillMaxWidth().height(250.dp), shape = MaterialTheme.shapes.large) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (selectedFrom != null && selectedTo != null) {
+                        Text("حملہ: ${selectedFrom!!.name} ➔ ${selectedTo!!.name}", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
                         
                         Row {
                             RPSButton("🪨") { if(attackerChoices.size < 3) attackerChoices.add(RPSChoice.ROCK) }
@@ -87,23 +95,26 @@ class MainActivity : ComponentActivity() {
                         if (attackerChoices.size == 3) {
                             Button(onClick = {
                                 val aiChoices = List(3) { RPSChoice.values().random() }
-                                val res = engine.resolveBattle(attackerChoices, aiChoices, 10, selectedTerritory!!.troops)
+                                val result = engine.resolveBattle(attackerChoices, aiChoices, selectedFrom!!.troops, selectedTo!!.troops)
                                 
-                                Toast.makeText(this@MainActivity, res.message, Toast.LENGTH_SHORT).show()
-                                
-                                // Map Update Logic
-                                if (res.attackerWon) {
-                                    territories = territories.map { 
-                                        if (it.id == selectedTerritory!!.id) it.copy(ownerId = 1, troops = res.remainingAttackerTroops) 
-                                        else it 
+                                // Update Map
+                                territories = territories.map {
+                                    when (it.id) {
+                                        selectedFrom!!.id -> it.copy(troops = result.attackerRemaining)
+                                        selectedTo!!.id -> if(result.attackerWon) it.copy(ownerId = 1, troops = 5) else it.copy(troops = result.defenderRemaining)
+                                        else -> it
                                     }
                                 }
+                                Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_SHORT).show()
                                 attackerChoices.clear()
-                                selectedTerritory = null
+                                selectedFrom = null
+                                selectedTo = null
                             }) {
                                 Text("جنگ شروع کریں!")
                             }
                         }
+                    } else {
+                        Text("اپنا علاقہ منتخب کریں اور پھر دشمن کے جڑے ہوئے علاقے پر کلک کریں")
                     }
                 }
             }
@@ -111,7 +122,24 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    fun TerritoryNode(territory: Territory, isSelected: Boolean, onCLick: () -> Unit) {
+        Box(modifier = Modifier
+            .offset(x = (territory.xPos * 300).dp, y = (territory.yPos * 500).dp)
+            .size(80.dp)
+            .background(if (territory.ownerId == 1) Color(0xFF2196F3) else Color(0xFFF44336), CircleShape)
+            .border(if (isSelected) 4.dp else 0.dp, Color.White, CircleShape)
+            .clickable { onCLick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(territory.name, color = Color.White, fontSize = 10.sp)
+                Text("${territory.troops}", color = Color.White, fontSize = 18.sp)
+            }
+        }
+    }
+
+    @Composable
     fun RPSButton(label: String, onClick: () -> Unit) {
-        Button(onClick = onClick, modifier = Modifier.padding(4.dp)) { Text(label) }
+        OutlinedButton(onClick = onClick, modifier = Modifier.padding(4.dp)) { Text(label, fontSize = 20.sp) }
     }
 }
