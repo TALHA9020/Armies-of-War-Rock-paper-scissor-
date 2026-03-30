@@ -1,5 +1,7 @@
 package com.armies.ofwar
 
+import kotlin.math.max
+
 class BattleEngine {
     
     fun resolveBattle(
@@ -8,35 +10,31 @@ class BattleEngine {
         attackerTroops: Int,
         defenderTroops: Int
     ): BattleResult {
-        var attackerWins = 0
-        var defenderWins = 0
+        var aWins = 0
+        var dWins = 0
 
-        // 3 Rounds of RPS logic
+        // RPS Rounds
         for (i in 0 until 3) {
-            val a = attackerChoices[i]
-            val d = defenderChoices[i]
-            if (a == d) continue
-            if (a.beats(d)) attackerWins++ else defenderWins++
+            if (attackerChoices[i] == defenderChoices[i]) continue
+            if (attackerChoices[i].beats(defenderChoices[i])) aWins++ else dWins++
         }
 
-        val won = when {
-            attackerWins > defenderWins -> true
-            defenderWins > attackerWins -> false
-            else -> attackerTroops > defenderTroops // Tie breaker
-        }
-
-        return if (won) {
-            // حملہ آور جیت گیا: دفاعی فوج ختم، حملہ آور کی کچھ فوج وہاں منتقل ہوگی
-            BattleResult(true, "فتح! علاقہ آپ کا ہوا۔", remainingAttackerTroops = attackerTroops - 1)
+        return if (aWins > dWins || (aWins == dWins && attackerTroops > defenderTroops)) {
+            // Attacker Wins the territory
+            BattleResult(
+                attackerWon = true,
+                message = "فتح! آپ نے علاقہ فتح کر لیا۔",
+                attackerRemaining = max(1, attackerTroops - 2), // کچھ فوج ضائع ہوئی
+                defenderRemaining = 0
+            )
         } else {
-            // دفاع جیت گیا: حملہ آور کی بھیجی گئی فوج ضائع ہوگئی
-            BattleResult(false, "شکست! دفاعی فوج مضبوط نکلی۔", remainingAttackerTroops = 1)
+            // Defender Wins
+            BattleResult(
+                attackerWon = false,
+                message = "شکست! دفاعی فوج جیت گئی۔",
+                attackerRemaining = 1, // صرف ایک یونٹ واپس بچا
+                defenderRemaining = max(1, defenderTroops - 1)
+            )
         }
     }
-
-    data class BattleResult(
-        val attackerWon: Boolean, 
-        val message: String, 
-        val remainingAttackerTroops: Int
-    )
 }
