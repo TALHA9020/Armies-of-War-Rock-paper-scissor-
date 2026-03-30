@@ -12,21 +12,23 @@ class BattleEngine {
         var aPoints = 0
         var dPoints = 0
 
-        // Slot by Slot Comparison (1vs1, 2vs2, 3vs3)
-        for (i in 0..2) {
-            if (aChoices[i] == dChoices[i]) continue
-            if (aChoices[i].beats(dChoices[i])) aPoints++ else dPoints++
+        // 3 راؤنڈز کا موازنہ
+        for (i in 0 until 3) {
+            val a = aChoices[i]
+            val d = dChoices[i]
+            if (a == d) continue
+            if (a.beats(d)) aPoints++ else dPoints++
         }
 
-        // Overall winner based on slots won
-        val won = if (aPoints != dPoints) aPoints > dPoints else aTroops > dTroops
+        // فاتح کا فیصلہ (پوائنٹس کی بنیاد پر، برابر ہونے پر زیادہ فوج جیتتی ہے)
+        val attackerWon = if (aPoints != dPoints) aPoints > dPoints else aTroops > dTroops
 
-        return if (won) {
-            // Attacker wins territory, moves half troops
-            BattleResult(true, aPoints, dPoints, max(2, aTroops / 2), 0)
+        return if (attackerWon) {
+            // حملہ آور جیتا: آدھی فوج وہاں منتقل، دشمن ختم
+            BattleResult(true, max(2, aTroops / 2), 1, "فتح! علاقہ فتح کر لیا گیا۔")
         } else {
-            // Defender holds, attacker retreats with 1 troop
-            BattleResult(false, aPoints, dPoints, 1, max(1, dTroops - 1))
+            // دفاع کرنے والا جیتا: حملہ آور واپس (1 فوج کے ساتھ)
+            BattleResult(false, 1, max(1, dTroops - 1), "شکست! دشمن نے دفاع کر لیا۔")
         }
     }
 }
