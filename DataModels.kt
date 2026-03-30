@@ -12,17 +12,17 @@ enum class RPSChoice {
 data class Territory(
     val id: Int,
     val name: String,
-    val ownerId: Int, // 1: Player, 2: AI
+    val ownerId: Int, // 1: Player (Blue), 2: AI (Red)
     val troops: Int,
     val neighbors: List<Int>,
     val xPos: Float,
-    val yPos: Float
+    val yPos: Float,
+    val color: Color = if (ownerId == 1) Color(0xFF1976D2) else Color(0xFFD32F2F)
 )
 
 data class BattleResult(
     val attackerWon: Boolean,
-    val attackerPoints: Int,
-    val defenderPoints: Int,
     val attackerRemaining: Int,
-    val defenderRemaining: Int
+    val defenderRemaining: Int,
+    val message: String
 )
