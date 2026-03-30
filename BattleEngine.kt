@@ -3,38 +3,30 @@ package com.armies.ofwar
 import kotlin.math.max
 
 class BattleEngine {
-    
-    fun resolveBattle(
-        attackerChoices: List<RPSChoice>,
-        defenderChoices: List<RPSChoice>,
-        attackerTroops: Int,
-        defenderTroops: Int
+    fun resolve3vs3Clash(
+        aChoices: List<RPSChoice>,
+        dChoices: List<RPSChoice>,
+        aTroops: Int,
+        dTroops: Int
     ): BattleResult {
-        var aWins = 0
-        var dWins = 0
+        var aPoints = 0
+        var dPoints = 0
 
-        // RPS Rounds
-        for (i in 0 until 3) {
-            if (attackerChoices[i] == defenderChoices[i]) continue
-            if (attackerChoices[i].beats(defenderChoices[i])) aWins++ else dWins++
+        // Slot by Slot Comparison (1vs1, 2vs2, 3vs3)
+        for (i in 0..2) {
+            if (aChoices[i] == dChoices[i]) continue
+            if (aChoices[i].beats(dChoices[i])) aPoints++ else dPoints++
         }
 
-        return if (aWins > dWins || (aWins == dWins && attackerTroops > defenderTroops)) {
-            // Attacker Wins the territory
-            BattleResult(
-                attackerWon = true,
-                message = "فتح! آپ نے علاقہ فتح کر لیا۔",
-                attackerRemaining = max(1, attackerTroops - 2), // کچھ فوج ضائع ہوئی
-                defenderRemaining = 0
-            )
+        // Overall winner based on slots won
+        val won = if (aPoints != dPoints) aPoints > dPoints else aTroops > dTroops
+
+        return if (won) {
+            // Attacker wins territory, moves half troops
+            BattleResult(true, aPoints, dPoints, max(2, aTroops / 2), 0)
         } else {
-            // Defender Wins
-            BattleResult(
-                attackerWon = false,
-                message = "شکست! دفاعی فوج جیت گئی۔",
-                attackerRemaining = 1, // صرف ایک یونٹ واپس بچا
-                defenderRemaining = max(1, defenderTroops - 1)
-            )
+            // Defender holds, attacker retreats with 1 troop
+            BattleResult(false, aPoints, dPoints, 1, max(1, dTroops - 1))
         }
     }
 }
