@@ -1,7 +1,5 @@
 package com.armies.ofwar
 
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 
 enum class RPSChoice { ROCK, PAPER, SCISSORS;
@@ -17,7 +15,7 @@ data class Player(
     val id: Int,
     val name: String,
     val color: Color,
-    val isHuman: Boolean = false
+    var totalReinforcements: Int = 5
 )
 
 data class Territory(
@@ -25,13 +23,14 @@ data class Territory(
     val name: String,
     val ownerId: Int,
     val troops: Int,
-    val neighbors: List<Int> // ان علاقوں کے IDs جن پر یہاں سے حملہ ہو سکتا ہے
+    val neighbors: List<Int>, // کن علاقوں سے راستہ جڑا ہے
+    val xPos: Float, // نقشے پر پوزیشن (فیصد میں)
+    val yPos: Float
 )
 
-// گیم کی موجودہ صورتحال کو سنبھالنے کے لیے
-data class GameState(
-    val players: List<Player>,
-    val territories: List<Territory>,
-    val currentPlayerIndex: Int = 0,
-    val statusMessage: String = "آپ کی باری ہے!"
+data class BattleResult(
+    val attackerWon: Boolean,
+    val message: String,
+    val attackerRemaining: Int,
+    val defenderRemaining: Int
 )
